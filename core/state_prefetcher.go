@@ -35,6 +35,7 @@ var (
 )
 
 const prefetchThread = 2
+const checkInterval = 10
 
 // statePrefetcher is a basic Prefetcher, which blindly executes a block on top
 // of an arbitrary state with the goal of prefetching potentially useful state
@@ -144,7 +145,7 @@ func (p *statePrefetcher) PrefetchMining(txs *types.TransactionsByPriceAndNonce,
 				return
 			default:
 			}
-			if count++; count%10 == 0 {
+			if count++; count%checkInterval == 0 {
 				if *txCurr == nil {
 					return
 				}

@@ -791,9 +791,9 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	}
 	bloomProcessors := core.NewAsyncReceiptBloomGenerator(processorCapacity)
 
-	//	var interruptPrefetch uint32
 	interruptCh := make(chan struct{})
-	var tx *types.Transaction
+	defer close(interruptCh)
+	tx := &types.Transaction{}
 	txCurr := &tx
 	//prefetch txs from all pending txs
 	txsPrefetch := txs.Copy()
@@ -819,7 +819,6 @@ LOOP:
 					inc:   true,
 				}
 			}
-			close(interruptCh)
 			return atomic.LoadInt32(interrupt) == commitInterruptNewHead
 		}
 		// If we don't have enough gas for any further transactions then we're done
@@ -891,7 +890,6 @@ LOOP:
 		}
 	}
 	perf.RecordMPMetrics(perf.MpMiningCommitProcess, startProcess)
-	close(interruptCh)
 	bloomProcessors.Close()
 
 	if !w.isRunning() && len(coalescedLogs) > 0 {
