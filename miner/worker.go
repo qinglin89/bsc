@@ -396,6 +396,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			}
 			clearPending(head.Block.NumberU64())
 			timestamp = time.Now().Unix()
+			log.Info("miner/worker.go:: start commit at chainHeadCh arrived")
 			commit(true, commitInterruptNewHead)
 
 		case <-timer.C:

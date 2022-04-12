@@ -1099,6 +1099,7 @@ func (pool *TxPool) scheduleReorgLoop() {
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
 func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*txSortedMap) {
+	log.Info("tx_pool:: pool.runReorg start")
 	defer close(done)
 
 	var promoteAddrs []common.Address
@@ -1112,6 +1113,7 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	if reset != nil {
 		// Reset from the old head to the new, rescheduling any reorged transactions
 		pool.reset(reset.oldHead, reset.newHead)
+		log.Info("tx_pool:: pool.reset done")
 
 		// Nonces were reset, discard any events that became stale
 		for addr := range events {
@@ -1128,12 +1130,14 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	}
 	// Check for pending transactions for every account that sent new ones
 	promoted := pool.promoteExecutables(promoteAddrs)
+	log.Info("tx_pool:: pool.promoteExecutables done")
 
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
 	if reset != nil {
 		pool.demoteUnexecutables()
+		log.Info("tx_pool:: pool.demoteUnexecutables done")
 	}
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
 	pool.truncatePending()
@@ -1161,6 +1165,7 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 		}
 		pool.txFeed.Send(NewTxsEvent{txs})
 	}
+	log.Info("tx_pool:: pool.runReorg done")
 }
 
 // reset retrieves the current state of the blockchain and ensures the content
