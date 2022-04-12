@@ -1036,7 +1036,6 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 		if interval != nil {
 			interval()
 		}
-		start = time.Now()
 		select {
 		case w.taskCh <- &task{receipts: receipts, state: s, block: block, createdAt: time.Now()}:
 			w.unconfirmed.Shift(block.NumberU64() - 1)
