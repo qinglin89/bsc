@@ -20,7 +20,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/perf"
 	"io"
 	"math/big"
 	mrand "math/rand"
@@ -28,6 +27,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/ethereum/go-ethereum/perf"
 
 	"github.com/ethereum/go-ethereum/cachemetrics"
 
@@ -1941,6 +1942,7 @@ func (bc *BlockChain) InsertChainWithoutSealVerification(block *types.Block) (in
 // is imported, but then new canon-head is added before the actual sidechain
 // completes, then the historic state could be pruned again
 func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, error) {
+	log.Info("blockchain.go:insertChain start, len(blocks):", len(chain))
 	// If the chain is terminating, don't even bother starting up
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		return 0, nil
@@ -2112,7 +2114,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		}
 		// Retrieve the parent block and it's state to execute on top
 		start := time.Now()
-
+		log.Info("blockchain.go: insertchain start executing on blockNum:", block.NumberU64())
 		parent := it.previous()
 		if parent == nil {
 			parent = bc.GetHeader(block.ParentHash(), block.NumberU64()-1)

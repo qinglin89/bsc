@@ -982,6 +982,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		log.Error("Failed to fetch pending transactions", "err", err)
 	}
 	// Short circuit if there is no available pending transactions
+	log.Info("miner/worker.go: check tx_pool.pending")
 	if len(pending) != 0 {
 		start := time.Now()
 		// Split the pending transactions into locals and remotes
@@ -1014,6 +1015,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		commitTxsTimer.UpdateSince(start)
 		log.Info("Gas pool", "height", header.Number.String(), "pool", w.current.gasPool.String())
 	}
+	log.Info("miner/worker.go:finish pending execution, commit:")
 	w.commit(uncles, w.fullTaskHook, false, tstart)
 }
 
