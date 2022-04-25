@@ -1292,6 +1292,7 @@ func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, 
 	}
 	s := w.current.state
 	if err := s.WaitPipeVerification(); err == nil {
+		log.Info("preCommitBlock-preExecute", "txs", w.current.txs, "len(txs)", len(w.current.txs), "uncles", uncles, "receipts", w.current.receipts, "len(receipts)", w.current.receipts)
 		w.engine.FinalizeAndAssemble(w.chain, types.CopyHeader(w.current.header), s, w.current.txs, uncles, w.current.receipts)
 		log.Info("preCommitBlock-preExecute, FinalizeAndAssemble done", "blockNum", num, "ctxs", ctxs+1)
 	}
