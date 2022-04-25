@@ -1285,7 +1285,7 @@ func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, 
 			log.Info("preCommitBlock-preExecute, commit local txs interrupted and return", "blockNum", num, "ctxs", ctxs+1, "len(localtxs)", len(pendingTxs[0]))
 			return
 		}
-		log.Info("preCommitBlock-preExecute finish exec local txs", "blockNum", num, "ctxs", ctxs+1)
+		log.Info("preCommitBlock-preExecute finish exec local txs", "blockNum", num, "ctxs", ctxs+1, "len(localTxs)-1", len(pendingTxs[0]))
 	} else {
 		log.Info("preCommitBlock-preExecute finish exec local txs", "blockNum", num, "ctxs", ctxs+1, "len(localtxs)", 0)
 	}
@@ -1295,6 +1295,9 @@ func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, 
 			log.Info("preCommitBlock-preExecute, commit remote txs interrupted and return", "blockNum", num, "ctxs", ctxs+1)
 			return
 		}
+		log.Info("preCommitBlock-preExecute finish exec remote txs", "blockNum", num, "ctxs", ctxs+1, "len(remoteTxs)-1", len(pendingTxs[1]))
+	} else {
+		log.Info("preCommitBlock-preExecute finish exec remote txs", "blockNum", num, "ctxs", ctxs+1, "len(remoteTxs)", 0)
 	}
 	s := w.current.state
 	if err := s.WaitPipeVerification(); err == nil {
