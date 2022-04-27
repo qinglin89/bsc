@@ -41,7 +41,7 @@ import (
 )
 
 var (
-	blockCount = uint64(0)
+	blockCount = 0
 	preFlag    = false
 )
 
@@ -209,9 +209,6 @@ type worker struct {
 	skipSealHook func(*task) bool                   // Method to decide whether skipping the sealing.
 	fullTaskHook func()                             // Method to call before pushing the full sealing task.
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
-
-	stopTxpoolSnapshotCh chan struct{}
-	stopPreCommitCh      chan struct{}
 }
 
 func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool) *worker {
@@ -243,8 +240,6 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		resetPoolSnapshot:    make(chan struct{}, 2),
 		headNewCh:            make(chan int, 2),
 		txpoolChainHeadCh:    make(chan struct{}, 2),
-		stopTxpoolSnapshotCh: make(chan struct{}),
-		stopPreCommitCh:      make(chan struct{}),
 	}
 	// Subscribe NewTxsEvent for tx pool
 	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
@@ -415,40 +410,29 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			commit(true, commitInterruptNewHead)
 
 		case head := <-w.chainHeadCh:
-			nTmp := head.Block.NumberU64() % 1000
-			if nTmp > blockCount {
-				blockCount = nTmp
-				if blockCount%2 == 0 {
-					core.PreCommitFlag = true
-					preFlag = true
-					log.Info("Start preCommit for about 1000 blocks")
-					go w.txpoolSnapshot()
-					go w.preCommitLoop()
-				} else {
-					core.PreCommitFlag = false
-					preFlag = false
-					w.stopTxpoolSnapshotCh <- struct{}{}
-					w.stopPreCommitCh <- struct{}{}
-				}
+			nTmp := head.Block.NumberU64()
+			if nTmp%1000 == 0 && (nTmp/1000)%2 == 0 {
+				preFlag = true
 			}
 			log.Info("miner/worker receive chainHeadCh")
 			if !w.isRunning() {
 				log.Info("miner/worker not mining")
 
-				if preFlag {
+				if preFlag{
 					select {
 					case w.txpoolChainHeadCh <- struct{}{}:
 						log.Info("miner/worker set txpoolChainHeadCh")
 					default:
 						log.Info("miner/worker fail to set txpoolChainHeadCh")
 					}
+
 				}
-				//select {
-				//case w.txpoolChainHeadCh <- struct{}{}:
-				//	log.Info("miner/worker set txpoolChainHeadCh")
-				//default:
-				//	log.Info("miner/worker fail to set txpoolChainHeadCh")
-				//}
+				select {
+				case w.txpoolChainHeadCh <- struct{}{}:
+					log.Info("miner/worker set txpoolChainHeadCh")
+				default:
+					log.Info("miner/worker fail to set txpoolChainHeadCh")
+				}
 				continue
 			}
 			clearPending(head.Block.NumberU64())
@@ -457,25 +441,21 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 				signedRecent, err := p.SignRecently(w.chain, head.Block.Header())
 				if err != nil {
 					log.Info("Not allowed to propose block", "err", err)
-					if preFlag {
-						select {
-						case w.txpoolChainHeadCh <- struct{}{}:
-							log.Info("miner/worker-signedcheckerr set txpoolChainHeadCh")
-						default:
-							log.Info("miner/worker-signedcheckerr fail to set txpoolChainHeadCh")
-						}
+					select {
+					case w.txpoolChainHeadCh <- struct{}{}:
+						log.Info("miner/worker-signedcheckerr set txpoolChainHeadCh")
+					default:
+						log.Info("miner/worker-signedcheckerr fail to set txpoolChainHeadCh")
 					}
 					continue
 				}
 				if signedRecent {
 					log.Info("Signed recently, must wait")
-					if preFlag {
-						select {
-						case w.txpoolChainHeadCh <- struct{}{}:
-							log.Info("miner/worker-signedrecent set txpoolChainHeadCh")
-						default:
-							log.Info("miner/worker-signedrecent fail to set txpoolChainHeadCh")
-						}
+					select {
+					case w.txpoolChainHeadCh <- struct{}{}:
+						log.Info("miner/worker-signedrecent set txpoolChainHeadCh")
+					default:
+						log.Info("miner/worker-signedrecent fail to set txpoolChainHeadCh")
 					}
 					continue
 				}
@@ -490,7 +470,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			// If mining is running resubmit a new work cycle periodically to pull in
 			// higher priced transactions. Disable this overhead for pending blocks.
 			if w.isRunning() && ((w.chainConfig.Ethash != nil) || (w.chainConfig.Clique != nil &&
-				w.chainConfig.Clique.Period > 0) || (w.chainConfig.Parlia != nil && w.chainConfig.Parlia.Period > 0)) {
+			w.chainConfig.Clique.Period > 0) || (w.chainConfig.Parlia != nil && w.chainConfig.Parlia.Period > 0)) {
 				// Short circuit if no new transaction arrives.
 				if atomic.LoadInt32(&w.newTxs) == 0 {
 					timer.Reset(recommit)
@@ -610,7 +590,7 @@ func (w *worker) mainLoop() {
 			// submit mining work here since all empty submission will be rejected
 			// by clique. Of course the advance sealing(empty submission) is disabled.
 			if (w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0) ||
-				(w.chainConfig.Parlia != nil && w.chainConfig.Parlia.Period == 0) {
+			(w.chainConfig.Parlia != nil && w.chainConfig.Parlia.Period == 0) {
 				w.commitNewWork(nil, true, time.Now().Unix())
 			}
 			//			}
@@ -729,7 +709,7 @@ func (w *worker) resultLoop() {
 				continue
 			}
 			log.Info("Successfully sealed new block", "number", block.Number(), "sealhash", sealhash, "hash", hash,
-				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
+			"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
 
 			// Broadcast the block and announce chain insertion event
 			w.mux.Post(core.NewMinedBlockEvent{Block: block})
@@ -874,7 +854,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	txCurr := &tx
 	w.prefetcher.PrefetchMining(txsPrefetch, w.current.header, w.current.gasPool.Gas(), w.current.state.Copy(), *w.chain.GetVMConfig(), interruptCh, txCurr)
 
-LOOP:
+	LOOP:
 	for {
 		// In the following three cases, we will interrupt the execution of the transaction.
 		// (1) new head block event arrival, the interrupt signal is 1
@@ -1107,9 +1087,9 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 		case w.taskCh <- &task{receipts: receipts, state: s, block: block, createdAt: time.Now()}:
 			w.unconfirmed.Shift(block.NumberU64() - 1)
 			log.Info("Commit new mining work", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
-				"uncles", len(uncles), "txs", w.current.tcount,
-				"gas", block.GasUsed(),
-				"elapsed", common.PrettyDuration(time.Since(start)))
+			"uncles", len(uncles), "txs", w.current.tcount,
+			"gas", block.GasUsed(),
+			"elapsed", common.PrettyDuration(time.Since(start)))
 
 		case <-w.exitCh:
 			log.Info("Worker has exited")
@@ -1141,7 +1121,7 @@ func (w *worker) txpoolSnapshot() {
 			//snapshot for every 20ms
 			log.Info("txpoolSnapshot take snapshots on timer")
 			preC := 0
-		loopIntern:
+			loopIntern:
 			for {
 				select {
 				case <-w.txpoolChainHeadCh:
@@ -1229,16 +1209,6 @@ func (w *worker) txpoolSnapshot() {
 			}
 			log.Info("txpoolSnapshot resetPoolSnapshot on mining locally with 2700ms duration")
 			timer = time.NewTimer(2700 * time.Millisecond)
-		case <-w.stopTxpoolSnapshotCh:
-			select {
-			case _, b := <-currentPoolTxsCh:
-				if b {
-					close(currentPoolTxsCh)
-				}
-			default:
-				close(currentPoolTxsCh)
-			}
-			return
 		}
 	}
 }
@@ -1248,7 +1218,7 @@ func (w *worker) preCommitLoop() {
 	interrupt := new(int32)
 	//	timer := time.NewTimer(0)
 	defer w.preCommitInterruptSub.Unsubscribe()
-	defer atomic.StoreInt32(interrupt, commitInterruptNewHead)
+
 	for {
 		select {
 		case poolTxsCh := <-w.pendingTxsCh:
@@ -1264,8 +1234,6 @@ func (w *worker) preCommitLoop() {
 			return
 		case <-w.preCommitInterruptSub.Err():
 			log.Info("preCommitLoop return on preCommitInterruptSubERR")
-			return
-		case <-w.stopPreCommitCh:
 			return
 		}
 	}
@@ -1341,9 +1309,6 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 			return
 		}
 		ctxs++
-		if ctxs > 5 {
-			break
-		}
 	}
 	log.Info("preCommitBlock end", "blockNum", header.Number, "batchTxs", ctxs, "countOfTxs", w.current.tcount, "elapsed", time.Now().Sub(tstart))
 }
@@ -1410,7 +1375,7 @@ func (w *worker) preCommitTransactions(txs *types.TransactionsByPriceAndNonce, c
 	}
 	bloomProcessors := core.NewAsyncReceiptBloomGenerator(processorCapacity)
 
-LOOP:
+	LOOP:
 	for {
 		// In the following three cases, we will interrupt the execution of the transaction.
 		// (1) new head block event arrival, the interrupt signal is 1
