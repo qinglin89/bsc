@@ -1317,7 +1317,7 @@ func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, 
 	}
 	s := w.current.state
 	if err := s.WaitPipeVerification(); err == nil {
-		log.Info("preCommitBlock-preExecute", "len(txs)", len(w.current.txs), "uncles", uncles, "len(receipts)", w.current.receipts)
+		log.Info("preCommitBlock-preExecute", "len(txs)", len(w.current.txs), "uncles", uncles, "len(receipts)", len(w.current.receipts))
 		//		w.engine.FinalizeAndAssemble4preCommit(w.chain, types.CopyHeader(w.current.header), s, w.current.txs, uncles, w.current.receipts)
 		w.engine.(*parlia.Parlia).FinalizeAndAssemble4preCommit(w.chain, types.CopyHeader(w.current.header), s, w.current.txs, uncles, w.current.receipts)
 		log.Info("preCommitBlock-preExecute, FinalizeAndAssemble done", "blockNum", num, "batchTxs", ctxs+1)
