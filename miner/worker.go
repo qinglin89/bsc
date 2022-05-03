@@ -1159,7 +1159,9 @@ func (w *worker) txpoolSnapshotLoop() {
 					}
 					currentPoolTxsCh = make(chan []map[common.Address]types.Transactions, 6)
 					timer = time.NewTimer(2000 * time.Millisecond)
+					log.Info("txpoolSnapshot pendingTxsCh<-currentPoolTxsCh")
 					w.pendingTxsCh <- currentPoolTxsCh
+					log.Info("txpoolSnapshot pendingTxsCh<-currentPoolTxsCh done")
 					if prePoolTxs != nil {
 						currentPoolTxsCh <- prePoolTxs
 						prePoolTxs = nil
@@ -1269,7 +1271,7 @@ func (w *worker) preCommitLoop() {
 			return
 		case err := <-w.preCommitInterruptSub.Err():
 			log.Info("preCommitLoop return on preCommitInterruptSubERR", "err", err)
-			return
+			//			return
 		case <-w.stopPreCommitCh:
 			log.Info("preCommitLoop return on stopPreCommitCh")
 			return
@@ -1283,7 +1285,7 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 
 	parent := w.chain.CurrentBlock()
 
-	timestamp := int64(parent.Time() + 1)
+	timestamp := int64(parent.Time() + 2)
 
 	num := parent.Number()
 	header := &types.Header{
@@ -1352,7 +1354,7 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 		}
 	}
 	routineCount--
-	log.Info("preCommitBlock end", "blockNum", header.Number, "batchTxs", ctxs, "countOfTxs", w.current.tcount, "elapsed", time.Now().Sub(tstart))
+	log.Info("preCommitBlock end", "blockNum", header.Number, "batchTxs", ctxs, "countOfTxs", w.current.tcount, "elapsed", time.Now().Sub(tstart), "routineCount", routineCount)
 }
 
 func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, interrupt *int32, uncles []*types.Header, num *big.Int, ctxs int) bool {
