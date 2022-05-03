@@ -423,17 +423,18 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 				if blockCount%2 == 0 {
 					core.PreCommitFlag = true
 					preFlag = true
-					log.Info("Start preCommit for about 1000 blocks")
+					log.Info("Start preCommit for about 1000 blocks", "blockNumber", head.Block.NumberU64())
 					go w.txpoolSnapshotLoop()
 					go w.preCommitLoop()
 				} else {
 					core.PreCommitFlag = false
 					preFlag = false
+					log.Info("Stop snapshotloop and precommitloop", "blockNumber", head.Block.NumberU64())
 					w.stopTxpoolSnapshotCh <- struct{}{}
 					w.stopPreCommitCh <- struct{}{}
 				}
 			}
-			log.Info("miner/worker receive chainHeadCh")
+			log.Info("miner/worker receive chainHeadCh", "blockNumber", head.Block.NumberU64())
 			if !w.isRunning() {
 				log.Info("miner/worker not mining")
 
