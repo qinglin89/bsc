@@ -41,8 +41,9 @@ import (
 )
 
 var (
-	blockCount = uint64(0)
-	preFlag    = false
+	blockCount   = uint64(0)
+	preFlag      = false
+	routineCount = 0
 )
 
 const (
@@ -155,7 +156,7 @@ type worker struct {
 	chainHeadSub          event.Subscription
 	chainSideCh           chan core.ChainSideEvent
 	chainSideSub          event.Subscription
-	preCommitInterruptCh  chan struct{}
+	preCommitInterruptCh  chan core.ChainInsertEvent
 	preCommitInterruptSub event.Subscription
 	//	txpoolChainHeadCh     chan core.ChainHeadEvent
 	//	txpoolChainHeadSub    event.Subscription
@@ -231,7 +232,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		txsCh:                make(chan core.NewTxsEvent, txChanSize),
 		chainHeadCh:          make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:          make(chan core.ChainSideEvent, chainSideChanSize),
-		preCommitInterruptCh: make(chan struct{}, preCommitInterruptChanSize),
+		preCommitInterruptCh: make(chan core.ChainInsertEvent, preCommitInterruptChanSize),
 		newWorkCh:            make(chan *newWorkReq),
 		taskCh:               make(chan *task),
 		resultCh:             make(chan *types.Block, resultQueueSize),
@@ -264,7 +265,8 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	go worker.newWorkLoop(recommit)
 	go worker.resultLoop()
 	go worker.taskLoop()
-	go worker.txpoolSnapshot()
+
+	go worker.txpoolSnapshotLoop()
 	go worker.preCommitLoop()
 
 	// Submit first work to initialize pending state.
@@ -422,7 +424,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 					core.PreCommitFlag = true
 					preFlag = true
 					log.Info("Start preCommit for about 1000 blocks")
-					go w.txpoolSnapshot()
+					go w.txpoolSnapshotLoop()
 					go w.preCommitLoop()
 				} else {
 					core.PreCommitFlag = false
@@ -1129,7 +1131,7 @@ func (w *worker) postSideBlock(event core.ChainSideEvent) {
 	}
 }
 
-func (w *worker) txpoolSnapshot() {
+func (w *worker) txpoolSnapshotLoop() {
 	timer := time.NewTimer(240 * time.Hour)
 	//	timer := time.NewTimer(0)
 	var prePoolTxs []map[common.Address]types.Transactions
@@ -1255,17 +1257,20 @@ func (w *worker) preCommitLoop() {
 			log.Info("preCommitLoop start on new head arrived interrupt current preCommitBlock and start a new one")
 			atomic.StoreInt32(interrupt, commitInterruptNewHead)
 			interrupt = new(int32)
+			routineCount++
 			go w.preCommitBlock(poolTxsCh, interrupt)
+			log.Info("preCommitLoop open preCommitBlock routine", "total", routineCount)
 		case <-w.preCommitInterruptCh:
 			log.Info("preCommitLoop interrupt current preCommitBlock on insert event")
 			atomic.StoreInt32(interrupt, commitInterruptNewHead)
 		case <-w.exitCh:
 			log.Info("preCommitLoop return on exitch")
 			return
-		case <-w.preCommitInterruptSub.Err():
-			log.Info("preCommitLoop return on preCommitInterruptSubERR")
+		case err := <-w.preCommitInterruptSub.Err():
+			log.Info("preCommitLoop return on preCommitInterruptSubERR", "err", err)
 			return
 		case <-w.stopPreCommitCh:
+			log.Info("preCommitLoop return on stopPreCommitCh")
 			return
 		}
 	}
@@ -1345,6 +1350,7 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 			break
 		}
 	}
+	routineCount--
 	log.Info("preCommitBlock end", "blockNum", header.Number, "batchTxs", ctxs, "countOfTxs", w.current.tcount, "elapsed", time.Now().Sub(tstart))
 }
 
