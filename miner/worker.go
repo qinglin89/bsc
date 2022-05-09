@@ -266,8 +266,8 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	go worker.resultLoop()
 	go worker.taskLoop()
 
-	//	go worker.txpoolSnapshotLoop()
-	//	go worker.preCommitLoop()
+	go worker.txpoolSnapshotLoop()
+	go worker.preCommitLoop()
 
 	// Submit first work to initialize pending state.
 	if init {
@@ -417,24 +417,23 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			commit(true, commitInterruptNewHead)
 
 		case head := <-w.chainHeadCh:
-			nTmp := head.Block.NumberU64() / 1000
-			if nTmp > blockCount {
-				blockCount = nTmp
-				if blockCount%2 == 0 {
-					core.PreCommitFlag = true
-					preFlag = true
-					log.Info("Start preCommit for about 1000 blocks", "blockNumber", head.Block.NumberU64())
-					//					w.preCommitInterruptSub = w.eth.BlockChain().SubscribeChainInsertEvent(w.preCommitInterruptCh)
-					go w.txpoolSnapshotLoop()
-					go w.preCommitLoop()
-				} else {
-					core.PreCommitFlag = false
-					preFlag = false
-					log.Info("Stop snapshotloop and precommitloop", "blockNumber", head.Block.NumberU64())
-					w.stopTxpoolSnapshotCh <- struct{}{}
-					w.stopPreCommitCh <- struct{}{}
-				}
-			}
+			//			nTmp := head.Block.NumberU64() / 1000
+			//			if nTmp > blockCount {
+			//				blockCount = nTmp
+			//				if blockCount%2 == 0 {
+			//					core.PreCommitFlag = true
+			//					preFlag = true
+			//					log.Info("Start preCommit for about 1000 blocks", "blockNumber", head.Block.NumberU64())
+			//					go w.txpoolSnapshotLoop()
+			//					go w.preCommitLoop()
+			//				} else {
+			//					core.PreCommitFlag = false
+			//					preFlag = false
+			//					log.Info("Stop snapshotloop and precommitloop", "blockNumber", head.Block.NumberU64())
+			//					w.stopTxpoolSnapshotCh <- struct{}{}
+			//					w.stopPreCommitCh <- struct{}{}
+			//				}
+			//			}
 			log.Info("miner/worker receive chainHeadCh", "blockNumber", head.Block.NumberU64())
 			if !w.isRunning() {
 				log.Info("miner/worker not mining")
@@ -447,12 +446,6 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 						log.Info("miner/worker fail to set txpoolChainHeadCh")
 					}
 				}
-				//select {
-				//case w.txpoolChainHeadCh <- struct{}{}:
-				//	log.Info("miner/worker set txpoolChainHeadCh")
-				//default:
-				//	log.Info("miner/worker fail to set txpoolChainHeadCh")
-				//}
 				continue
 			}
 			clearPending(head.Block.NumberU64())
@@ -1273,6 +1266,7 @@ func (w *worker) preCommitLoop() {
 			return
 		case err := <-w.preCommitInterruptSub.Err():
 			log.Info("preCommitLoop return on preCommitInterruptSubERR", "err", err)
+			panic("preCommitInterruptSubErr")
 			//			return
 		case <-w.stopPreCommitCh:
 			log.Info("preCommitLoop return on stopPreCommitCh")
