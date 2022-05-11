@@ -1367,7 +1367,7 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 	for txs := range poolTxsCh {
 		//reset gaspool, diff new txs, state has been changed on this height , will just be shifted by nonce. same nonce with higher price will fail.
 		if w.preExecute(txs, interrupt, uncles, header.Number, ctxs) {
-			log.Debug("preCommitBlock end-interrupted", "blockNum", header.Number, "batchTxs", ctxs+1, "countOfTxs", w.current.tcount, "elapsed", time.Now().Sub(tstart), "w.tcount", w.current.tcount)
+			log.Info("preCommitBlock end-interrupted", "blockNum", header.Number, "batchTxs", ctxs+1, "countOfTxs", w.current.tcount, "elapsed", time.Now().Sub(tstart), "w.tcount", w.current.tcount)
 			return
 		}
 		ctxs++
@@ -1428,7 +1428,12 @@ func (w *worker) preCommitTransactions(txs *types.TransactionsByPriceAndNonce, c
 	var stopTimer *time.Timer
 	delay := w.engine.Delay(w.chain, w.current.header)
 	if delay != nil {
-		stopTimer = time.NewTimer(*delay - w.config.DelayLeftOver)
+		tmpD := *delay - w.config.DelayLeftOver
+		if tmpD <= 100*time.Millisecond {
+			tmpD = time.Duration(time.Second)
+		}
+		//		stopTimer = time.NewTimer(*delay - w.config.DelayLeftOver)
+		stopTimer = time.NewTimer(tmpD)
 		log.Debug("preCommitTransactions: Time left for mining work", "left", (*delay - w.config.DelayLeftOver).String(), "leftover", w.config.DelayLeftOver)
 		defer stopTimer.Stop()
 	}
