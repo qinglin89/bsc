@@ -42,7 +42,7 @@ import (
 
 var (
 	blockCount = uint64(0)
-	preFlag    = false
+	preFlag    = true
 	//routineCount = 0
 )
 
@@ -179,7 +179,7 @@ type worker struct {
 	headNewCh          chan int
 	//preCommitChainHeadCh chan struct{}
 	txpoolChainHeadCh chan struct{}
-	preNewWorkCh      chan preNewWorkReq
+	preNewWorkCh      chan *preNewWorkReq
 
 	current      *environment                 // An environment for current running cycle.
 	localUncles  map[common.Hash]*types.Block // A set of side blocks generated locally as the possible uncle blocks.
@@ -252,6 +252,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		txpoolChainHeadCh:    make(chan struct{}, 2),
 		stopTxpoolSnapshotCh: make(chan struct{}),
 		stopPreCommitCh:      make(chan struct{}),
+		preNewWorkCh:         make(chan *preNewWorkReq),
 	}
 	// Subscribe NewTxsEvent for tx pool
 	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
@@ -274,6 +275,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 
 	go worker.txpoolSnapshotLoop()
 	go worker.preCommitLoop()
+	go worker.preNewWorkLoop()
 
 	// Submit first work to initialize pending state.
 	if init {
@@ -1258,7 +1260,7 @@ func (w *worker) preCommitLoop() {
 			atomic.StoreInt32(interrupt, commitInterruptNewHead)
 			interrupt = new(int32)
 			//routineCount++
-			w.preNewWorkCh <- preNewWorkReq{interrupt, poolTxsCh}
+			w.preNewWorkCh <- &preNewWorkReq{interrupt, poolTxsCh}
 			//log.Info("preCommitLoop open preCommitBlock routine", "total", routineCount)
 		case <-w.preCommitInterruptCh:
 			log.Info("preCommitLoop interrupt current preCommitBlock on insert event")
