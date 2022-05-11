@@ -41,9 +41,9 @@ import (
 )
 
 var (
-	blockCount   = uint64(0)
-	preFlag      = false
-	routineCount = 0
+	blockCount = uint64(0)
+	preFlag    = false
+	//routineCount = 0
 )
 
 const (
@@ -129,6 +129,11 @@ type newWorkReq struct {
 	timestamp int64
 }
 
+type preNewWorkReq struct {
+	interrupt *int32
+	txpoolCh  chan []map[common.Address]types.Transactions
+}
+
 // intervalAdjust represents a resubmitting interval adjustment.
 type intervalAdjust struct {
 	ratio float64
@@ -174,6 +179,7 @@ type worker struct {
 	headNewCh          chan int
 	//preCommitChainHeadCh chan struct{}
 	txpoolChainHeadCh chan struct{}
+	preNewWorkCh      chan preNewWorkReq
 
 	current      *environment                 // An environment for current running cycle.
 	localUncles  map[common.Hash]*types.Block // A set of side blocks generated locally as the possible uncle blocks.
@@ -477,10 +483,6 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 					continue
 				}
 			}
-			//select {
-			//case w.resetPoolSnapshot <- struct{}{}:
-			//	log.Info("resetPoolSnapshot")
-			//}
 			//commit(true, commitInterruptNewHead)
 
 		case <-timer.C:
@@ -1255,9 +1257,9 @@ func (w *worker) preCommitLoop() {
 			log.Info("preCommitLoop start on new head arrived interrupt current preCommitBlock and start a new one")
 			atomic.StoreInt32(interrupt, commitInterruptNewHead)
 			interrupt = new(int32)
-			routineCount++
-			go w.preCommitBlock(poolTxsCh, interrupt)
-			log.Info("preCommitLoop open preCommitBlock routine", "total", routineCount)
+			//routineCount++
+			w.preNewWorkCh <- preNewWorkReq{interrupt, poolTxsCh}
+			//log.Info("preCommitLoop open preCommitBlock routine", "total", routineCount)
 		case <-w.preCommitInterruptCh:
 			log.Info("preCommitLoop interrupt current preCommitBlock on insert event")
 			atomic.StoreInt32(interrupt, commitInterruptNewHead)
@@ -1275,13 +1277,22 @@ func (w *worker) preCommitLoop() {
 	}
 }
 
+func (w *worker) preNewWorkLoop() {
+	for {
+		select {
+		case req := <-w.preNewWorkCh:
+			w.preCommitBlock(req.txpoolCh, req.interrupt)
+		}
+	}
+}
+
 func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transactions, interrupt *int32) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
 	parent := w.chain.CurrentBlock()
 
-	timestamp := int64(parent.Time() + 2)
+	timestamp := int64(parent.Time() + 3)
 
 	num := parent.Number()
 	header := &types.Header{
@@ -1341,7 +1352,7 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 	for txs := range poolTxsCh {
 		//reset gaspool, diff new txs, state has been changed on this height , will just be shifted by nonce. same nonce with higher price will fail.
 		if w.preExecute(txs, interrupt, uncles, header.Number, ctxs) {
-			log.Info("preCommitBlock end-interrupted", "blockNum", header.Number, "batchTxs", ctxs+1, "countOfTxs", w.current.tcount, "elapsed", time.Now().Sub(tstart))
+			log.Info("preCommitBlock end-interrupted", "blockNum", header.Number, "batchTxs", ctxs+1, "countOfTxs", w.current.tcount, "elapsed", time.Now().Sub(tstart), "w.tcount", w.current.tcount)
 			return
 		}
 		ctxs++
@@ -1349,8 +1360,8 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 			break
 		}
 	}
-	routineCount--
-	log.Info("preCommitBlock end", "blockNum", header.Number, "batchTxs", ctxs, "countOfTxs", w.current.tcount, "elapsed", time.Now().Sub(tstart), "routineCount", routineCount)
+	//routineCount--
+	log.Info("preCommitBlock end", "blockNum", header.Number, "batchTxs", ctxs, "countOfTxs", w.current.tcount, "elapsed", time.Now().Sub(tstart), "w.tcount", w.current.tcount) //, "routineCount", routineCount)
 }
 
 func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, interrupt *int32, uncles []*types.Header, num *big.Int, ctxs int) bool {
