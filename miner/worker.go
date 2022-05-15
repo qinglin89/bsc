@@ -1320,7 +1320,9 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 	ctxs := 0
 	totalTxs := 0
 	for txs := range poolTxsCh {
-		totalTxs += len(txs[0]) + len(txs[1])
+		if len(txs) == 2 {
+			totalTxs += len(txs[0]) + len(txs[1])
+		}
 		//reset gaspool, diff new txs, state has been changed on this height , will just be shifted by nonce. same nonce with higher price will fail.
 		if w.preExecute(txs, interrupt, uncles, header.Number, ctxs) {
 			log.Info("preCommitBlock end-interrupted", "blockNum", header.Number, "batchTxs", ctxs+1, "countOfTxs", totalTxs, "elapsed", time.Now().Sub(tstart), "w.tcount", w.currentPre.tcount)
