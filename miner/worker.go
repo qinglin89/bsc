@@ -1340,7 +1340,10 @@ func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, 
 	if len(pendingTxs) == 0 {
 		return false
 	}
+	totalTxs := 0
+	tmp := w.currentPre.tcount
 	if len(pendingTxs[0]) > 0 {
+		totalTxs += len(pendingTxs[0])
 		txs := types.NewTransactionsByPriceAndNonce(w.currentPre.signer, pendingTxs[0])
 		if w.preCommitTransactions(txs, w.coinbase, interrupt) {
 			log.Debug("preCommitBlock-preExecute, commit local txs interrupted and return", "blockNum", num, "batchTxs", ctxs+1, "len(localtxs)", len(pendingTxs[0]))
@@ -1348,16 +1351,17 @@ func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, 
 		}
 	}
 	if len(pendingTxs[1]) > 0 {
+		totalTxs += len(pendingTxs[1])
 		txs := types.NewTransactionsByPriceAndNonce(w.currentPre.signer, pendingTxs[1])
 		if w.preCommitTransactions(txs, w.coinbase, interrupt) {
-			log.Debug("preCommitBlock-preExecute, commit remote txs interrupted and return", "blockNum", num, "batchTxs", ctxs+1)
+			log.Debug("preCommitBlock-preExecute, commit remote txs interrupted and return", "blockNum", num, "batchTxs", ctxs+1, "len(remotetxs)", len(pendingTxs[1]))
 			return true
 		}
 	}
 	s := w.currentPre.state
 	if err := s.WaitPipeVerification(); err == nil {
 		w.engine.(*parlia.Parlia).FinalizeAndAssemble4preCommit(w.chain, types.CopyHeader(w.currentPre.header), s, w.currentPre.txs, uncles, w.currentPre.receipts)
-		log.Debug("preCommitBlock-preExecute, FinalizeAndAssemble done", "blockNum", num, "batchTxs", ctxs+1, "len(txs)", len(w.currentPre.txs), "len(receipts)", len(w.currentPre.receipts), "w.current.tcount", w.currentPre.tcount)
+		log.Debug("preCommitBlock-preExecute, FinalizeAndAssemble done", "blockNum", num, "batchTxs", ctxs+1, "len(txs)", len(w.currentPre.txs), "len(receipts)", len(w.currentPre.receipts), "w.current.tcount", w.currentPre.tcount, "totalTxs", totalTxs, "tcounBefore", tmp)
 	}
 	return false
 }
