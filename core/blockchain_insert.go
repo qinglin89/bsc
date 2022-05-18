@@ -61,15 +61,15 @@ func (st *insertStats) report(chain []*types.Block, index int, dirty common.Stor
 		}
 		end := chain[index]
 
-		if PreCommitFlag {
-			totalGasUsedPre += float64(st.usedGas)
-			totalElapsedPre += float64(elapsed)
-			totalBlocksPre += st.processed
-		} else {
-			totalGasUsed += float64(st.usedGas)
-			totalElapsed += float64(elapsed)
-			totalBlocks += st.processed
-		}
+		//		if PreCommitFlag {
+		//			totalGasUsedPre += float64(st.usedGas)
+		//			totalElapsedPre += float64(elapsed)
+		//			totalBlocksPre += st.processed
+		//		} else {
+		//			totalGasUsed += float64(st.usedGas)
+		//			totalElapsed += float64(elapsed)
+		//			totalBlocks += st.processed
+		//		}
 
 		// Assemble the log context and send it to the logger
 		context := []interface{}{
