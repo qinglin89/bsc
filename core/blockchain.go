@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/perf"
 	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -1676,8 +1677,11 @@ func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
 // WriteBlockWithState writes the block and all associated state to the database.
 func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
 	bc.chainmu.Lock()
-	defer bc.chainmu.Unlock()
-
+	start := time.Now()
+	defer func() {
+		perf.RecordMPMetrics(perf.MpMiningWrite, start)
+		bc.chainmu.Unlock()
+	}()
 	return bc.writeBlockWithState(block, receipts, logs, state, emitHeadEvent)
 }
 
@@ -1904,7 +1908,9 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	// Pre-checks passed, start the full block imports
 	bc.wg.Add(1)
 	bc.chainmu.Lock()
+	start := time.Now()
 	n, err := bc.insertChain(chain, true)
+	perf.RecordMPMetrics(perf.MpImportingTotal, start)
 	bc.chainmu.Unlock()
 	bc.wg.Done()
 
@@ -1954,6 +1960,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
+	startVerifyHeader := time.Now()
 	// Start the parallel header verifier
 	headers := make([]*types.Header, len(chain))
 	seals := make([]bool, len(chain))
@@ -1963,6 +1970,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		seals[i] = verifySeals
 	}
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
+	perf.RecordMPMetrics(perf.MpImportingVerifyHeader, startVerifyHeader)
 	defer close(abort)
 
 	// Peek the error for the first block to decide the directing import logic
@@ -2017,7 +2025,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		log.Debug("Pruned ancestor, inserting as sidechain", "number", block.Number(), "hash", block.Hash())
 		return bc.insertSideChain(block, it)
 
-	// First block is future, shove it (and all children) to the future queue (unknown ancestor)
+		// First block is future, shove it (and all children) to the future queue (unknown ancestor)
 	case errors.Is(err, consensus.ErrFutureBlock) || (errors.Is(err, consensus.ErrUnknownAncestor) && bc.futureBlocks.Contains(it.first().ParentHash())):
 		for block != nil && (it.index == 0 || errors.Is(err, consensus.ErrUnknownAncestor)) {
 			log.Debug("Future block, postponing import", "number", block.Number(), "hash", block.Hash())
@@ -2032,7 +2040,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		// If there are any still remaining, mark as ignored
 		return it.index, err
 
-	// Some other error occurred, abort
+		// Some other error occurred, abort
 	case err != nil:
 		bc.futureBlocks.Remove(block.Hash())
 		stats.ignored += len(it.chain)
@@ -2137,6 +2145,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		statedb.SetExpectedStateRoot(block.Root())
 		statedb, receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
 		atomic.StoreUint32(&followupInterrupt, 1)
+		perf.RecordMPMetrics(perf.MpImportingProcess, substart)
 		activeState = statedb
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -2155,7 +2164,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		// Validate the state using the default validator
 		substart = time.Now()
 		if !statedb.IsLightProcessed() {
-			if err := bc.validator.ValidateState(block, statedb, receipts, usedGas); err != nil {
+			substart = time.Now()
+			err := bc.validator.ValidateState(block, statedb, receipts, usedGas)
+			perf.RecordMPMetrics(perf.MpImportingVerifyState, substart)
+			if err != nil {
 				log.Error("validate state failed", "error", err)
 				bc.reportBlock(block, receipts, err)
 				return it.index, err
@@ -2174,6 +2186,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		// Write the block to the chain and get the status.
 		substart = time.Now()
 		status, err := bc.writeBlockWithState(block, receipts, logs, statedb, false)
+		perf.RecordMPMetrics(perf.MpImportingCommit, substart)
 		if err != nil {
 			return it.index, err
 		}
@@ -2933,6 +2946,7 @@ func (bc *BlockChain) isCachedBadBlock(block *types.Block) bool {
 
 // reportBlock logs a bad block error.
 func (bc *BlockChain) reportBlock(block *types.Block, receipts types.Receipts, err error) {
+	perf.RecordMPMetrics(perf.MpBadBlock, time.Now())
 	rawdb.WriteBadBlock(bc.db, block)
 
 	var receiptString string
