@@ -19,14 +19,16 @@ const (
 	MpMiningFinalize      MpMetricsName = "MP_MINING_FINALIZE"
 	MpMiningWrite         MpMetricsName = "MP_MINING_WRITE"
 
-	MpImportingTotal           MpMetricsName = "MP_IMPORTING_TOTAL"
-	MpImportingVerifyHeader    MpMetricsName = "MP_IMPORTING_VERIFY_HEADER"
-	MpImportingVerifyState     MpMetricsName = "MP_IMPORTING_VERIFY_STATE"
-	MpImportingProcess         MpMetricsName = "MP_IMPORTING_PROCESS"
-	MpImportingProcessPreload  MpMetricsName = "MP_IMPORTING_PROCESS_PRELOAD"
-	MpImportingProcessExecute  MpMetricsName = "MP_IMPORTING_PROCESS_EXECUTE"
-	MpImportingProcessFinalize MpMetricsName = "MP_IMPORTING_PROCESS_FINALIZE"
-	MpImportingCommit          MpMetricsName = "MP_IMPORTING_COMMIT"
+	MpImportingTotal                      MpMetricsName = "MP_IMPORTING_TOTAL"
+	MpImportingVerifyHeader               MpMetricsName = "MP_IMPORTING_VERIFY_HEADER"
+	MpImportingVerifyState                MpMetricsName = "MP_IMPORTING_VERIFY_STATE"
+	MpImportingProcess                    MpMetricsName = "MP_IMPORTING_PROCESS"
+	MpImportingProcessPreload             MpMetricsName = "MP_IMPORTING_PROCESS_PRELOAD"
+	MpImportingProcessExecute             MpMetricsName = "MP_IMPORTING_PROCESS_EXECUTE"
+	MpImportingProcessFinalize            MpMetricsName = "MP_IMPORTING_PROCESS_FINALIZE"
+	MpImportingCommit                     MpMetricsName = "MP_IMPORTING_COMMIT"
+	MpImportingProcessExecuteApplyMessage MpMetricsName = "MP_IMPORTING_PROCESS_EXECUTE_APPLYMESSAGE"
+	MpImportingProcessExecuteFinalise     MpMetricsName = "MP_IMPORTING_PROCESS_EXECUTE_FINALISE"
 
 	MpPropagationTotal         MpMetricsName = "MP_PROPAGATION_TOTAL"
 	MpPropagationSend          MpMetricsName = "MP_PROPAGATION_SEND"
@@ -83,6 +85,9 @@ var (
 	importingProcessExecuteAllCounter = metrics.NewRegisteredCounter("mp/importing/process/execute/all", nil)
 	importingProcessExecuteTimer      = metrics.NewRegisteredTimer("mp/importing/process/execute", nil)
 
+	importingProcessExecuteApplyMessageTimer = metrics.NewRegisteredTimer("mp/importing/process/execute/applymessage", nil)
+	importingProcessExecuteFinaliseTimer     = metrics.NewRegisteredTimer("mp/importing/process/execute/finalise", nil)
+
 	importingProcessFinalizeAllCounter = metrics.NewRegisteredCounter("mp/importing/process/finalize/all", nil)
 	importingProcessFinalizeTimer      = metrics.NewRegisteredTimer("mp/importing/process/finalize", nil)
 
@@ -99,6 +104,16 @@ var (
 	//bad block counter
 	badBlockCounter = metrics.NewRegisteredCounter("mp/bad_block", nil)
 )
+
+func RecordMPMetricsDuration(metricsName MpMetricsName, d time.Duration) {
+	switch metricsName {
+	case MpImportingProcessExecuteApplyMessage:
+		recordTimerDuration(importingProcessExecuteApplyMessageTimer, d)
+	case MpImportingProcessExecuteFinalise:
+		recordTimerDuration(importingProcessExecuteFinaliseTimer, d)
+	}
+
+}
 
 func RecordMPMetrics(metricsName MpMetricsName, start time.Time) {
 	//	if !mpMetricsEnabled {
@@ -185,6 +200,10 @@ func RecordMPLogs(logger log.Logger, msg string, ctx ...interface{}) {
 
 func recordTimer(timer metrics.Timer, start time.Time) {
 	timer.Update(time.Since(start))
+}
+
+func recordTimerDuration(timer metrics.Timer, d time.Duration) {
+	timer.Update(d)
 }
 
 func increaseCounter(counter metrics.Counter, start time.Time) {
