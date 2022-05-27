@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/perf"
 	"github.com/ethereum/go-ethereum/trie"
 )
 
@@ -535,7 +536,9 @@ func (w *worker) mainLoop() {
 	for {
 		select {
 		case req := <-w.newWorkCh:
+			start := time.Now()
 			w.commitNewWork(req.interrupt, req.noempty, req.timestamp)
+			perf.RecordMPMetrics(perf.MpMiningTotal, start)
 
 		case ev := <-w.chainSideCh:
 			// Short circuit for duplicate side blocks
@@ -860,7 +863,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	tx := txsPrefetch.Peek()
 	txCurr := &tx
 	w.prefetcher.PrefetchMining(txsPrefetch, w.current.header, w.current.gasPool.Gas(), w.current.state.Copy(), *w.chain.GetVMConfig(), interruptCh, txCurr)
-
+	startProcess := time.Now()
 LOOP:
 	for {
 		// In the following three cases, we will interrupt the execution of the transaction.
@@ -951,6 +954,7 @@ LOOP:
 			txs.Shift()
 		}
 	}
+	perf.RecordMPMetrics(perf.MpMiningCommitProcess, startProcess)
 	bloomProcessors.Close()
 
 	if !w.isRunning() && len(coalescedLogs) > 0 {
@@ -1064,9 +1068,15 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		}
 		if len(remoteTxs) > 0 {
 			txs := types.NewTransactionsByPriceAndNonce(w.current.signer, remoteTxs)
-			if w.commitTransactions(txs, w.coinbase, interrupt) {
+			startCommit := time.Now()
+			succeed := w.commitTransactions(txs, w.coinbase, interrupt)
+			perf.RecordMPMetrics(perf.MpMiningCommitTx, startCommit)
+			if succeed {
 				return
 			}
+			//			if w.commitTransactions(txs, w.coinbase, interrupt) {
+			//				return
+			//			}
 		}
 		commitTxsTimer.UpdateSince(start)
 		log.Info("Gas pool", "height", header.Number.String(), "pool", w.current.gasPool.String())
@@ -1082,7 +1092,9 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 	if err != nil {
 		return err
 	}
+	startFinalize := time.Now()
 	block, receipts, err := w.engine.FinalizeAndAssemble(w.chain, types.CopyHeader(w.current.header), s, w.current.txs, uncles, w.current.receipts)
+	perf.RecordMPMetrics(perf.MpMiningFinalize, startFinalize)
 	if err != nil {
 		return err
 	}
