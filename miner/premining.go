@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
+//commit block for pre-mining
 func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transactions, interrupt *int32) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -26,15 +27,20 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
+		//bigger gaslimit for more transactions to be executed
 		GasLimit:   core.CalcGasLimit(parent, w.config.GasFloor, w.config.GasCeil) * 4,
 		Extra:      w.extra,
 		Nonce:      types.BlockNonce{},
 		Difficulty: big.NewInt(2),
 	}
 
-	if err := w.engine.(*parlia.Parlia).Prepare4PreMining(w.chain, header); err != nil {
-		log.Error("preCommitBlock: Failed to prepare header for mining", "err", err)
-		return
+	if e, ok := w.engine.(*parlia.Parlia); ok {
+		if err := e.Prepare4PreMining(w.chain, header); err != nil {
+			log.Error("preCommitBlock: Failed to prepare header for mining", "err", err)
+			return
+		}
+	} else {
+		header.Time = parent.Time() + uint64(3)
 	}
 	// Could potentially happen if starting to mine in an odd state.
 	err := w.makePreCurrent(parent, header)
@@ -58,7 +64,7 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 		}
 		//reset gaspool, diff new txs, state has been changed on this height , will just be shifted by nonce. same nonce with higher price will fail.
 		if w.preExecute(txs, interrupt, uncles, header.Number, ctxs) {
-			log.Info("preCommitBlock end-interrupted", "blockNum", header.Number, "batchTxs", ctxs+1, "countOfTxs", totalTxs, "elapsed", time.Now().Sub(tstart), "w.tcount", w.currentPre.tcount)
+			log.Info("preCommitBlock end-interrupted", "blockNum", header.Number, "batchTxs", ctxs+1, "countOfTxs", totalTxs, "elapsed", common.PrettyDuration(time.Since(tstart)), "w.tcount", w.currentPre.tcount)
 			return
 		}
 		ctxs++
@@ -66,7 +72,7 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 			break
 		}
 	}
-	log.Info("preCommitBlock end", "blockNum", header.Number, "batchTxs", ctxs, "countOfTxs", totalTxs, "elapsed", time.Now().Sub(tstart), "w.tcount", w.currentPre.tcount)
+	log.Info("preCommitBlock end", "blockNum", header.Number, "batchTxs", ctxs, "countOfTxs", totalTxs, "elapsed", common.PrettyDuration(time.Since(tstart)), "w.tcount", w.currentPre.tcount)
 }
 
 func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, interrupt *int32, uncles []*types.Header, num *big.Int, ctxs int) bool {
@@ -78,22 +84,22 @@ func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, 
 	if len(pendingTxs[0]) > 0 {
 		totalTxs += len(pendingTxs[0])
 		txs := types.NewTransactionsByPriceAndNonce(w.currentPre.signer, pendingTxs[0])
+		//preCommitBlock-preExecute, commit local txs interrupted and return
 		if w.preCommitTransactions(txs, w.coinbase, interrupt) {
-			log.Debug("preCommitBlock-preExecute, commit local txs interrupted and return", "blockNum", num, "batchTxs", ctxs+1, "len(localtxs)", len(pendingTxs[0]))
 			return true
 		}
 	}
 	if len(pendingTxs[1]) > 0 {
 		totalTxs += len(pendingTxs[1])
 		txs := types.NewTransactionsByPriceAndNonce(w.currentPre.signer, pendingTxs[1])
+		//preCommitBlock-preExecute, commit remote txs interrupted and return
 		if w.preCommitTransactions(txs, w.coinbase, interrupt) {
-			log.Debug("preCommitBlock-preExecute, commit remote txs interrupted and return", "blockNum", num, "batchTxs", ctxs+1, "len(remotetxs)", len(pendingTxs[1]))
 			return true
 		}
 	}
 	s := w.currentPre.state
 	if err := s.WaitPipeVerification(); err == nil {
-		w.engine.(*parlia.Parlia).FinalizeAndAssemble4preMining(w.chain, types.CopyHeader(w.currentPre.header), s)
+		s.IntermediateRoot(w.chain.Config().IsEIP158(w.currentPre.header.Number))
 		log.Debug("preCommitBlock-preExecute, FinalizeAndAssemble done", "blockNum", num, "batchTxs", ctxs+1, "len(txs)", len(w.currentPre.txs), "len(receipts)", len(w.currentPre.receipts), "w.current.tcount", w.currentPre.tcount, "totalTxs", totalTxs, "tcounBefore", tmp)
 	}
 	return false
@@ -116,9 +122,8 @@ func (w *worker) preCommitTransactions(txs *types.TransactionsByPriceAndNonce, c
 	if delay != nil {
 		tmpD := *delay - w.config.DelayLeftOver
 		if tmpD <= 100*time.Millisecond {
-			tmpD = time.Duration(time.Second)
+			tmpD = time.Second
 		}
-		//		stopTimer = time.NewTimer(*delay - w.config.DelayLeftOver)
 		stopTimer = time.NewTimer(tmpD)
 		log.Debug("preCommitTransactions: Time left for mining work", "left", (*delay - w.config.DelayLeftOver).String(), "leftover", w.config.DelayLeftOver)
 		defer stopTimer.Stop()

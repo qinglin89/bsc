@@ -41,10 +41,6 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 )
 
-var (
-	txpoolSnapshotFlag = false
-)
-
 const (
 	// resultQueueSize is the size of channel listening to sealing result.
 	resultQueueSize = 10
@@ -837,7 +833,12 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 
 	if w.current.gasPool == nil {
 		w.current.gasPool = new(core.GasPool).AddGas(w.current.header.GasLimit)
-		w.current.gasPool.SubGas(params.SystemTxsGas)
+		if w.chain.Config().IsEuler(w.current.header.Number) {
+			w.current.gasPool.SubGas(params.SystemTxsGas * 3)
+		} else {
+			w.current.gasPool.SubGas(params.SystemTxsGas)
+		}
+
 	}
 
 	var coalescedLogs []*types.Log
@@ -1092,7 +1093,10 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 	if err != nil {
 		return err
 	}
+
+	s.CorrectAccountsRoot(w.chain.CurrentBlock().Root())
 	startFinalize := time.Now()
+
 	block, receipts, err := w.engine.FinalizeAndAssemble(w.chain, types.CopyHeader(w.current.header), s, w.current.txs, uncles, w.current.receipts)
 	perf.RecordMPMetrics(perf.MpMiningFinalize, startFinalize)
 	if err != nil {
@@ -1269,12 +1273,8 @@ func (w *worker) preMiningLoop() {
 }
 
 func (w *worker) preNewWorkLoop() {
-	for {
-		select {
-		//only one preCommitBlock work running at a time
-		case req := <-w.preNewWorkCh:
-			w.preCommitBlock(req.txpoolCh, req.interrupt)
-		}
+	for req := range w.preNewWorkCh {
+		w.preCommitBlock(req.txpoolCh, req.interrupt)
 	}
 }
 
