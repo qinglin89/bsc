@@ -1151,14 +1151,7 @@ func (w *worker) txpoolSnapshotLoop() {
 				case <-w.txpoolChainHeadCh:
 					log.Debug("txpoolSnapshot start 5 snapshots on new head arrived")
 					//close previous currentPoolTxsch which would notify the possible running precommitBlock process to quit
-					select {
-					case _, b := <-currentPoolTxsCh:
-						if b {
-							close(currentPoolTxsCh)
-						}
-					default:
-						close(currentPoolTxsCh)
-					}
+					closePoolTxCh(currentPoolTxsCh, 6)
 					//make a new currrentPoolTxsCh for the new round of pre-mining
 					currentPoolTxsCh = make(chan []map[common.Address]types.Transactions, 6)
 					timer.Reset(2000 * time.Millisecond)
@@ -1182,14 +1175,7 @@ func (w *worker) txpoolSnapshotLoop() {
 					log.Debug("txpoolSnapshot resetPoolSnapshot on mining locally with 2700ms duration")
 					timer = time.NewTimer(2700 * time.Millisecond)
 					//close currentPoolTxch which would notify the possible running precommitBlock process to quit
-					select {
-					case _, b := <-currentPoolTxsCh:
-						if b {
-							close(currentPoolTxsCh)
-						}
-					default:
-						close(currentPoolTxsCh)
-					}
+					closePoolTxCh(currentPoolTxsCh, 6)
 					break loopIntern
 				default:
 					//snapshot every 20ms
@@ -1207,14 +1193,7 @@ func (w *worker) txpoolSnapshotLoop() {
 		case <-w.txpoolChainHeadCh:
 			//take snapshot on txpool every 20ms up to 5 for pre-mining process to execute of this round on the current highest block
 			log.Info("txpoolSnapshot take snapshots on new head arrived")
-			select {
-			case _, b := <-currentPoolTxsCh:
-				if b {
-					close(currentPoolTxsCh)
-				}
-			default:
-				close(currentPoolTxsCh)
-			}
+			closePoolTxCh(currentPoolTxsCh, 6)
 			currentPoolTxsCh = make(chan []map[common.Address]types.Transactions, 6)
 			timer.Reset(1800 * time.Millisecond)
 			w.pendingTxsCh <- currentPoolTxsCh
@@ -1235,14 +1214,7 @@ func (w *worker) txpoolSnapshotLoop() {
 				time.Sleep(20 * time.Millisecond)
 			}
 		case <-w.resetPoolSnapshot:
-			select {
-			case _, b := <-currentPoolTxsCh:
-				if b {
-					close(currentPoolTxsCh)
-				}
-			default:
-				close(currentPoolTxsCh)
-			}
+			closePoolTxCh(currentPoolTxsCh, 6)
 			log.Info("txpoolSnapshot resetPoolSnapshot on mining locally with 2700ms duration")
 			//reset timer for next round of txpool-snapshot
 			timer.Reset(2700 * time.Millisecond)
@@ -1297,4 +1269,18 @@ func (w *worker) calPendingTxs() []map[common.Address]types.Transactions {
 		return []map[common.Address]types.Transactions{localTxs, remoteTxs}
 	}
 	return nil
+}
+
+func closePoolTxCh(ch chan []map[common.Address]types.Transactions, num int) {
+	for i := 0; i < num; i++ {
+		select {
+		case _, ok := <-ch:
+			if !ok {
+				return
+			}
+		default:
+			close(ch)
+			return
+		}
+	}
 }
