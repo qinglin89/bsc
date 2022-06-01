@@ -1137,73 +1137,73 @@ func (w *worker) txpoolSnapshotLoop() {
 	timer := time.NewTimer(0)
 	//discard initial timer
 	<-timer.C
-	var prePoolTxs []map[common.Address]types.Transactions
+	//var prePoolTxs []map[common.Address]types.Transactions
 	currentPoolTxsCh := make(chan []map[common.Address]types.Transactions, 6)
 	defer timer.Stop()
 	for {
 		select {
-		case <-timer.C:
-			preC := 0
-		loopIntern:
-			for {
-				select {
-				//new block imported and takes 5 snapshots for pre-mining on current highest block
-				case <-w.txpoolChainHeadCh:
-					log.Debug("txpoolSnapshot start 5 snapshots on new head arrived")
-					//close previous currentPoolTxsch which would notify the possible running precommitBlock process to quit
-					closePoolTxCh(currentPoolTxsCh, 6)
-					//make a new currrentPoolTxsCh for the new round of pre-mining
-					currentPoolTxsCh = make(chan []map[common.Address]types.Transactions, 6)
-					timer.Reset(2000 * time.Millisecond)
-					w.pendingTxsCh <- currentPoolTxsCh
-					//take snapshot of txpool before the new block imported if exists
-					if prePoolTxs != nil {
-						currentPoolTxsCh <- prePoolTxs
-						prePoolTxs = nil
-					}
-					j := 0
-					for j < 5 {
-						//take snapshot on txpool every 20ms up to 5 for pre-mining process to execute of this round on the current highest block
-						tmp := w.calPendingTxs()
-						currentPoolTxsCh <- tmp
-						j++
-						time.Sleep(20 * time.Millisecond)
-					}
-					break loopIntern
-				case <-w.resetPoolSnapshot:
-					//signal from resetPoolSnapshot is used to interrupt snapshot process on txpool and reset the timer to wait for next round caused by locally mining
-					log.Debug("txpoolSnapshot resetPoolSnapshot on mining locally with 2700ms duration")
-					timer = time.NewTimer(2700 * time.Millisecond)
-					//close currentPoolTxch which would notify the possible running precommitBlock process to quit
-					closePoolTxCh(currentPoolTxsCh, 6)
-					break loopIntern
-				default:
-					//snapshot every 20ms
-					preC++
-					if preC > 3 {
-						//limit number of snapshots before block imported to save runtime resources
-						timer.Reset(3 * time.Second)
-						break loopIntern
-					}
-					//take a snapshot
-					prePoolTxs = w.calPendingTxs()
-					time.Sleep(20 * time.Millisecond)
-				}
-			}
+		//		case <-timer.C:
+		//			preC := 0
+		//		loopIntern:
+		//			for {
+		//				select {
+		//				//new block imported and takes 5 snapshots for pre-mining on current highest block
+		//				case <-w.txpoolChainHeadCh:
+		//					log.Debug("txpoolSnapshot start 5 snapshots on new head arrived")
+		//					//close previous currentPoolTxsch which would notify the possible running precommitBlock process to quit
+		//					closePoolTxCh(currentPoolTxsCh, 6)
+		//					//make a new currrentPoolTxsCh for the new round of pre-mining
+		//					currentPoolTxsCh = make(chan []map[common.Address]types.Transactions, 6)
+		//					timer.Reset(2000 * time.Millisecond)
+		//					w.pendingTxsCh <- currentPoolTxsCh
+		//					//take snapshot of txpool before the new block imported if exists
+		//					if prePoolTxs != nil {
+		//						currentPoolTxsCh <- prePoolTxs
+		//						prePoolTxs = nil
+		//					}
+		//					j := 0
+		//					for j < 5 {
+		//						//take snapshot on txpool every 20ms up to 5 for pre-mining process to execute of this round on the current highest block
+		//						tmp := w.calPendingTxs()
+		//						currentPoolTxsCh <- tmp
+		//						j++
+		//						time.Sleep(20 * time.Millisecond)
+		//					}
+		//					break loopIntern
+		//				case <-w.resetPoolSnapshot:
+		//					//signal from resetPoolSnapshot is used to interrupt snapshot process on txpool and reset the timer to wait for next round caused by locally mining
+		//					log.Debug("txpoolSnapshot resetPoolSnapshot on mining locally with 2700ms duration")
+		//					timer = time.NewTimer(2700 * time.Millisecond)
+		//					//close currentPoolTxch which would notify the possible running precommitBlock process to quit
+		//					closePoolTxCh(currentPoolTxsCh, 6)
+		//					break loopIntern
+		//				default:
+		//					//snapshot every 20ms
+		//					preC++
+		//					if preC > 3 {
+		//						//limit number of snapshots before block imported to save runtime resources
+		//						timer.Reset(3 * time.Second)
+		//						break loopIntern
+		//					}
+		//					//take a snapshot
+		//					prePoolTxs = w.calPendingTxs()
+		//					time.Sleep(20 * time.Millisecond)
+		//				}
+		//			}
 		case <-w.txpoolChainHeadCh:
 			//take snapshot on txpool every 20ms up to 5 for pre-mining process to execute of this round on the current highest block
 			log.Info("txpoolSnapshot take snapshots on new head arrived")
 			closePoolTxCh(currentPoolTxsCh, 6)
 			currentPoolTxsCh = make(chan []map[common.Address]types.Transactions, 6)
-			timer.Reset(1800 * time.Millisecond)
+			//			timer.Reset(1800 * time.Millisecond)
 			w.pendingTxsCh <- currentPoolTxsCh
-			if prePoolTxs != nil {
-				currentPoolTxsCh <- prePoolTxs
-				prePoolTxs = nil
-			}
+			//			if prePoolTxs != nil {
+			//				currentPoolTxsCh <- prePoolTxs
+			//				prePoolTxs = nil
+			//			}
 			j := 0
-			for j < 5 {
-				//take snapshot every 20ms up to 5
+			for j < 6 {
+				//take snapshot every 20ms up to 6
 				tmp := w.calPendingTxs()
 				currentPoolTxsCh <- tmp
 				j++
@@ -1217,7 +1217,7 @@ func (w *worker) txpoolSnapshotLoop() {
 			closePoolTxCh(currentPoolTxsCh, 6)
 			log.Info("txpoolSnapshot resetPoolSnapshot on mining locally with 2700ms duration")
 			//reset timer for next round of txpool-snapshot
-			timer.Reset(2700 * time.Millisecond)
+			//			timer.Reset(2700 * time.Millisecond)
 		}
 	}
 }
