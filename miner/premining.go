@@ -32,7 +32,7 @@ type txListLogs struct {
 }
 
 func (t *txListLogs) updateHeader(header *big.Int) {
-	if t.txsLists[t.idx].header == nil || header.Cmp(t.txsLists[t.idx].header) > 0 {
+	if header.Cmp(t.txsLists[t.idx].header) > 0 {
 		t.idx++
 		t.txsLists[t.idx%2] = &txListLog{
 			header: header,
@@ -75,7 +75,18 @@ func (t *txListLogs) updatePop(header *big.Int) {
 	t.txsLists[t.idx].pop++
 }
 
-var txsRecords = &txListLogs{}
+var txsRecords = &txListLogs{
+	txsLists: [2]*txListLog{
+		&txListLog{
+			header: big.NewInt(0),
+			txs:    make(map[common.Hash]struct{}),
+		},
+		&txListLog{
+			header: big.NewInt(0),
+			txs:    make(map[common.Hash]struct{}),
+		},
+	},
+}
 
 //commit block for pre-mining
 func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transactions, interrupt *int32) {
