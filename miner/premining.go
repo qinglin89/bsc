@@ -32,7 +32,7 @@ type txListLogs struct {
 }
 
 func (t *txListLogs) updateHeader(header *big.Int) {
-	if header.Cmp(t.txsLists[t.idx].header) > 0 {
+	if header.Cmp(t.txsLists[t.idx%2].header) > 0 {
 		t.idx++
 		t.txsLists[t.idx%2] = &txListLog{
 			header: header,
@@ -57,22 +57,22 @@ func (t *txListLogs) checkTx(tx common.Hash) {
 }
 
 func (t *txListLogs) updateTx(header *big.Int, tx common.Hash) {
-	if header.Cmp(t.txsLists[t.idx].header) != 0 {
+	if header.Cmp(t.txsLists[t.idx%2].header) != 0 {
 		panic("log on txList fail")
 	}
-	t.txsLists[t.idx].txs[tx] = struct{}{}
+	t.txsLists[t.idx%2].txs[tx] = struct{}{}
 }
 func (t *txListLogs) updateShift(header *big.Int) {
-	if header.Cmp(t.txsLists[t.idx].header) != 0 {
+	if header.Cmp(t.txsLists[t.idx%2].header) != 0 {
 		panic("log on txList fail about shift")
 	}
-	t.txsLists[t.idx].shift++
+	t.txsLists[t.idx%2].shift++
 }
 func (t *txListLogs) updatePop(header *big.Int) {
-	if header.Cmp(t.txsLists[t.idx].header) != 0 {
+	if header.Cmp(t.txsLists[t.idx%2].header) != 0 {
 		panic("log on txList fail about shift")
 	}
-	t.txsLists[t.idx].pop++
+	t.txsLists[t.idx%2].pop++
 }
 
 var txsRecords = &txListLogs{
