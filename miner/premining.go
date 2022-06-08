@@ -3,6 +3,7 @@ package miner
 import (
 	"errors"
 	"math/big"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,6 +16,66 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
+
+type txListLog struct {
+	header    *big.Int
+	txs       map[common.Hash]struct{}
+	shift     int
+	pop       int
+	countSame int
+}
+type txListLogs struct {
+	idx       int //current index
+	txsLists  [2]*txListLog
+	lock      sync.Mutex
+	countSame int
+}
+
+func (t *txListLogs) updateHeader(header *big.Int) {
+	if t.txsLists[t.idx].header == nil || header.Cmp(t.txsLists[t.idx].header) > 0 {
+		t.idx++
+		t.txsLists[t.idx%2] = &txListLog{
+			header: header,
+			txs:    make(map[common.Hash]struct{}),
+		}
+	}
+}
+
+func (t *txListLogs) resetCount() {
+	t.txsLists[0].countSame = 0
+	t.txsLists[1].countSame = 0
+	t.countSame = 0
+}
+func (t *txListLogs) checkTx(tx common.Hash) {
+	if _, ok := t.txsLists[0].txs[tx]; ok {
+		t.txsLists[0].countSame++
+		t.countSame++
+	} else if _, ok = t.txsLists[1].txs[tx]; ok {
+		t.txsLists[1].countSame++
+		t.countSame++
+	}
+}
+
+func (t *txListLogs) updateTx(header *big.Int, tx common.Hash) {
+	if header.Cmp(t.txsLists[t.idx].header) != 0 {
+		panic("log on txList fail")
+	}
+	t.txsLists[t.idx].txs[tx] = struct{}{}
+}
+func (t *txListLogs) updateShift(header *big.Int) {
+	if header.Cmp(t.txsLists[t.idx].header) != 0 {
+		panic("log on txList fail about shift")
+	}
+	t.txsLists[t.idx].shift++
+}
+func (t *txListLogs) updatePop(header *big.Int) {
+	if header.Cmp(t.txsLists[t.idx].header) != 0 {
+		panic("log on txList fail about shift")
+	}
+	t.txsLists[t.idx].pop++
+}
+
+var txsRecords = &txListLogs{}
 
 //commit block for pre-mining
 func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transactions, interrupt *int32) {
@@ -58,6 +119,9 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 	log.Info("preCommitBlock start", "blockNum", header.Number)
 	ctxs := 0
 	totalTxs := 0
+	txsRecords.lock.Lock()
+	defer txsRecords.lock.Unlock()
+	txsRecords.updateHeader(header.Number)
 	for txs := range poolTxsCh {
 		if len(txs) == 2 {
 			totalTxs += len(txs[0]) + len(txs[1])
@@ -128,6 +192,7 @@ func (w *worker) preCommitTransactions(txs *types.TransactionsByPriceAndNonce, c
 		log.Debug("preCommitTransactions: Time left for mining work", "left", (*delay - w.config.DelayLeftOver).String(), "leftover", w.config.DelayLeftOver)
 		defer stopTimer.Stop()
 	}
+	headerNum := w.currentPre.header.Number
 
 LOOP:
 	for {
@@ -180,33 +245,39 @@ LOOP:
 			// Pop the current out-of-gas transaction without shifting in the next from the account
 			//log.Trace("Gas limit exceeded for current block", "sender", from)
 			txs.Pop()
+			txsRecords.updatePop(headerNum)
 
 		case errors.Is(err, core.ErrNonceTooLow):
 			// New head notification data race between the transaction pool and miner, shift
 			//log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Shift()
+			txsRecords.updateShift(headerNum)
 
 		case errors.Is(err, core.ErrNonceTooHigh):
 			// Reorg notification data race between the transaction pool and miner, skip account =
 			//log.Trace("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Pop()
+			txsRecords.updatePop(headerNum)
 
 		case errors.Is(err, nil):
 			// Everything ok, collect the logs and shift in the next transaction from the same account
 			coalescedLogs = append(coalescedLogs, logs...)
 			w.currentPre.tcount++
+			txsRecords.updateTx(headerNum, tx.Hash())
 			txs.Shift()
 
 		case errors.Is(err, core.ErrTxTypeNotSupported):
 			// Pop the unsupported transaction without shifting in the next from the account
 			//log.Trace("Skipping unsupported transaction type", "sender", from, "type", tx.Type())
 			txs.Pop()
+			txsRecords.updatePop(headerNum)
 
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
 			//log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
+			txsRecords.updateShift(headerNum)
 		}
 	}
 	return false

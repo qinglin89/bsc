@@ -941,6 +941,7 @@ LOOP:
 			// Everything ok, collect the logs and shift in the next transaction from the same account
 			coalescedLogs = append(coalescedLogs, logs...)
 			w.current.tcount++
+			txsRecords.checkTx(tx.Hash())
 			txs.Shift()
 
 		case errors.Is(err, core.ErrTxTypeNotSupported):
@@ -1052,6 +1053,12 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	}
 	// Short circuit if there is no available pending transactions
 	if len(pending) != 0 {
+		txsRecords.lock.Lock()
+		defer func() {
+			log.Info("height", header.Number.String(), "countOfSameTxs", txsRecords.countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[0].header, "count", txsRecords.txsLists[0].countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[1].header, "count", txsRecords.txsLists[1].countSame)
+			txsRecords.lock.Unlock()
+		}()
+		txsRecords.resetCount()
 		start := time.Now()
 		// Split the pending transactions into locals and remotes
 		localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
