@@ -1055,7 +1055,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	if len(pending) != 0 {
 		txsRecords.lock.Lock()
 		defer func() {
-			log.Info("height", header.Number.String(), "countOfSameTxs", txsRecords.countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[0].header, "count", txsRecords.txsLists[0].countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[1].header, "count", txsRecords.txsLists[1].countSame)
+			log.Info("countOfSametxs", "height", header.Number.String(), "countOfSameTxs", txsRecords.countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[0].header, "count", txsRecords.txsLists[0].countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[1].header, "count", txsRecords.txsLists[1].countSame)
 			txsRecords.lock.Unlock()
 		}()
 		txsRecords.resetCount()
@@ -1222,7 +1222,7 @@ func (w *worker) txpoolSnapshotLoop() {
 			}
 		case <-w.resetPoolSnapshot:
 			closePoolTxCh(currentPoolTxsCh, 6)
-			log.Info("txpoolSnapshot resetPoolSnapshot on mining locally with 2700ms duration")
+			//			log.Info("txpoolSnapshot resetPoolSnapshot on mining locally with 2700ms duration")
 			//reset timer for next round of txpool-snapshot
 			//			timer.Reset(2700 * time.Millisecond)
 		}
