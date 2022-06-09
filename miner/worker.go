@@ -42,7 +42,7 @@ import (
 )
 
 //0:total, 1:pop1, 2:pop2, 3:pop3, 4:pop4,5:shift1, 6:shift2
-var tempCount [7]int
+var tempCount [9]int
 
 const (
 	// resultQueueSize is the size of channel listening to sealing result.
@@ -1065,11 +1065,11 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	if len(pending) != 0 {
 		txsRecords.lock.Lock()
 		defer func() {
-			log.Info("countOfSametxs", "height", header.Number.String(), "countOfSameTxs", txsRecords.countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[0].header, "count", txsRecords.txsLists[0].countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[1].header, "count", txsRecords.txsLists[1].countSame, "details-headNum", txsRecords.txsLists[0].header, "countShift", txsRecords.txsLists[0].shift, "countPop", txsRecords.txsLists[0].pop, "details-headNum", txsRecords.txsLists[1].header, "coountShift", txsRecords.txsLists[1].shift, "countPop", txsRecords.txsLists[1].pop, "commitCountTotalTxs", tempCount[0], "pop1", tempCount[1], "pop2", tempCount[2], "pop3", tempCount[3], "pop4", tempCount[4], "shift1", tempCount[5], "shift2", tempCount[6])
+			log.Info("countOfSametxs", "height", header.Number.String(), "countOfSameTxs", txsRecords.countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[0].header, "count", txsRecords.txsLists[0].countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[1].header, "count", txsRecords.txsLists[1].countSame, "details-headNum", txsRecords.txsLists[0].header, "countShift", txsRecords.txsLists[0].shift, "countPop", txsRecords.txsLists[0].pop, "details-headNum", txsRecords.txsLists[1].header, "coountShift", txsRecords.txsLists[1].shift, "countPop", txsRecords.txsLists[1].pop, "commitCountTotalExecutedTxs", tempCount[0], "totalLocalTxs", tempCount[7], "totalRemoteTxs", tempCount[8], "pop1", tempCount[1], "pop2", tempCount[2], "pop3", tempCount[3], "pop4", tempCount[4], "shift1", tempCount[5], "shift2", tempCount[6])
 			txsRecords.lock.Unlock()
 		}()
 		txsRecords.resetCount()
-		for tmpi := 0; tmpi < 7; tmpi++ {
+		for tmpi := 0; tmpi < 9; tmpi++ {
 			tempCount[tmpi] = 0
 		}
 		start := time.Now()
@@ -1082,12 +1082,14 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 			}
 		}
 		if len(localTxs) > 0 {
+			tempCount[7] += len(localTxs)
 			txs := types.NewTransactionsByPriceAndNonce(w.current.signer, localTxs)
 			if w.commitTransactions(txs, w.coinbase, interrupt) {
 				return
 			}
 		}
 		if len(remoteTxs) > 0 {
+			tempCount[8] += len(remoteTxs)
 			txs := types.NewTransactionsByPriceAndNonce(w.current.signer, remoteTxs)
 			startCommit := time.Now()
 			succeed := w.commitTransactions(txs, w.coinbase, interrupt)
