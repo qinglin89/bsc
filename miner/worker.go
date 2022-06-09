@@ -41,6 +41,9 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 )
 
+//0:total, 1:pop1, 2:pop2, 3:pop3, 4:pop4,5:shift1, 6:shift2
+var tempCount [7]int
+
 const (
 	// resultQueueSize is the size of channel listening to sealing result.
 	resultQueueSize = 10
@@ -905,6 +908,7 @@ LOOP:
 		if tx == nil {
 			break
 		}
+		tempCount[0]++
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
@@ -915,6 +919,7 @@ LOOP:
 		if tx.Protected() && !w.chainConfig.IsEIP155(w.current.header.Number) {
 			//log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
 			txs.Pop()
+			tempCount[1]++
 			continue
 		}
 		// Start executing the transaction
@@ -926,16 +931,19 @@ LOOP:
 			// Pop the current out-of-gas transaction without shifting in the next from the account
 			//log.Trace("Gas limit exceeded for current block", "sender", from)
 			txs.Pop()
+			tempCount[2]++
 
 		case errors.Is(err, core.ErrNonceTooLow):
 			// New head notification data race between the transaction pool and miner, shift
 			//log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Shift()
+			tempCount[5]++
 
 		case errors.Is(err, core.ErrNonceTooHigh):
 			// Reorg notification data race between the transaction pool and miner, skip account =
 			//log.Trace("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Pop()
+			tempCount[3]++
 
 		case errors.Is(err, nil):
 			// Everything ok, collect the logs and shift in the next transaction from the same account
@@ -948,12 +956,14 @@ LOOP:
 			// Pop the unsupported transaction without shifting in the next from the account
 			//log.Trace("Skipping unsupported transaction type", "sender", from, "type", tx.Type())
 			txs.Pop()
+			tempCount[4]++
 
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
 			//log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
+			tempCount[6]++
 		}
 	}
 	perf.RecordMPMetrics(perf.MpMiningCommitProcess, startProcess)
@@ -1055,10 +1065,13 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	if len(pending) != 0 {
 		txsRecords.lock.Lock()
 		defer func() {
-			log.Info("countOfSametxs", "height", header.Number.String(), "countOfSameTxs", txsRecords.countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[0].header, "count", txsRecords.txsLists[0].countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[1].header, "count", txsRecords.txsLists[1].countSame)
+			log.Info("countOfSametxs", "height", header.Number.String(), "countOfSameTxs", txsRecords.countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[0].header, "count", txsRecords.txsLists[0].countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[1].header, "count", txsRecords.txsLists[1].countSame, "details-headNum", txsRecords.txsLists[0].header, "countShift", txsRecords.txsLists[0].shift, "countPop", txsRecords.txsLists[0].pop, "details-headNum", txsRecords.txsLists[1].header, "coountShift", txsRecords.txsLists[1].shift, "countPop", txsRecords.txsLists[1].pop, "commitCountTotalTxs", tempCount[0], "pop1", tempCount[1], "pop2", tempCount[2], "pop3", tempCount[3], "pop4", tempCount[4], "shift1", tempCount[5], "shift2", tempCount[6])
 			txsRecords.lock.Unlock()
 		}()
 		txsRecords.resetCount()
+		for tmpi := 0; tmpi < 7; tmpi++ {
+			tempCount[tmpi] = 0
+		}
 		start := time.Now()
 		// Split the pending transactions into locals and remotes
 		localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
