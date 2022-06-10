@@ -588,6 +588,7 @@ func (w *worker) mainLoop() {
 				}
 				txset := types.NewTransactionsByPriceAndNonce(w.current.signer, txs)
 				tcount := w.current.tcount
+				log.Info("committransactions on new txs w.isRunng==0")
 				w.commitTransactions(txset, coinbase, nil)
 				// Only update the snapshot if any new transactons were added
 				// to the pending block
@@ -600,6 +601,7 @@ func (w *worker) mainLoop() {
 				// by clique. Of course the advance sealing(empty submission) is disabled.
 				if (w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0) ||
 					(w.chainConfig.Parlia != nil && w.chainConfig.Parlia.Period == 0) {
+					log.Info("on new tx and parlia.period==0")
 					w.commitNewWork(nil, true, time.Now().Unix())
 				}
 			}
@@ -863,10 +865,10 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	interruptCh := make(chan struct{})
 	defer close(interruptCh)
 	//prefetch txs from all pending txs
-	txsPrefetch := txs.Copy()
-	tx := txsPrefetch.Peek()
-	txCurr := &tx
-	w.prefetcher.PrefetchMining(txsPrefetch, w.current.header, w.current.gasPool.Gas(), w.current.state.Copy(), *w.chain.GetVMConfig(), interruptCh, txCurr)
+	//	txsPrefetch := txs.Copy()
+	//	tx := txsPrefetch.Peek()
+	//	txCurr := &tx
+	//	w.prefetcher.PrefetchMining(txsPrefetch, w.current.header, w.current.gasPool.Gas(), w.current.state.Copy(), *w.chain.GetVMConfig(), interruptCh, txCurr)
 	startProcess := time.Now()
 LOOP:
 	for {
@@ -904,7 +906,7 @@ LOOP:
 			}
 		}
 		// Retrieve the next transaction and abort if all done
-		tx = txs.Peek()
+		tx := txs.Peek()
 		if tx == nil {
 			break
 		}
@@ -1097,9 +1099,6 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 			if succeed {
 				return
 			}
-			//			if w.commitTransactions(txs, w.coinbase, interrupt) {
-			//				return
-			//			}
 		}
 		commitTxsTimer.UpdateSince(start)
 		log.Info("Gas pool", "height", header.Number.String(), "pool", w.current.gasPool.String())
