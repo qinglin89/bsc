@@ -135,7 +135,13 @@ func (w *worker) preCommitBlock(poolTxsCh chan []map[common.Address]types.Transa
 	txsRecords.updateHeader(header.Number)
 	for txs := range poolTxsCh {
 		if len(txs) == 2 {
-			totalTxs += len(txs[0]) + len(txs[1])
+			//			totalTxs += len(txs[0]) + len(txs[1])
+			for _, tmpTxs := range txs[0] {
+				totalTxs += len(tmpTxs)
+			}
+			for _, tmpTxs := range txs[1] {
+				totalTxs += len(tmpTxs)
+			}
 		}
 		//reset gaspool, diff new txs, state has been changed on this height , will just be shifted by nonce. same nonce with higher price will fail.
 		if w.preExecute(txs, interrupt, uncles, header.Number, ctxs) {
@@ -157,7 +163,10 @@ func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, 
 	totalTxs := 0
 	tmp := w.currentPre.tcount
 	if len(pendingTxs[0]) > 0 {
-		totalTxs += len(pendingTxs[0])
+		//totalTxs += len(pendingTxs[0])
+		for _, tmpTxs := range pendingTxs[0] {
+			totalTxs += len(tmpTxs)
+		}
 		txs := types.NewTransactionsByPriceAndNonce(w.currentPre.signer, pendingTxs[0])
 		//preCommitBlock-preExecute, commit local txs interrupted and return
 		if w.preCommitTransactions(txs, w.coinbase, interrupt) {
@@ -165,7 +174,11 @@ func (w *worker) preExecute(pendingTxs []map[common.Address]types.Transactions, 
 		}
 	}
 	if len(pendingTxs[1]) > 0 {
-		totalTxs += len(pendingTxs[1])
+		//		totalTxs += len(pendingTxs[1])
+		for _, tmpTxs := range pendingTxs[1] {
+			totalTxs += len(tmpTxs)
+		}
+
 		txs := types.NewTransactionsByPriceAndNonce(w.currentPre.signer, pendingTxs[1])
 		//preCommitBlock-preExecute, commit remote txs interrupted and return
 		if w.preCommitTransactions(txs, w.coinbase, interrupt) {
