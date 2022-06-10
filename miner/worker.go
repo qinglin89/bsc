@@ -588,7 +588,6 @@ func (w *worker) mainLoop() {
 				}
 				txset := types.NewTransactionsByPriceAndNonce(w.current.signer, txs)
 				tcount := w.current.tcount
-				log.Info("committransactions on new txs w.isRunng==0")
 				w.commitTransactions(txset, coinbase, nil)
 				// Only update the snapshot if any new transactons were added
 				// to the pending block
@@ -601,7 +600,6 @@ func (w *worker) mainLoop() {
 				// by clique. Of course the advance sealing(empty submission) is disabled.
 				if (w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0) ||
 					(w.chainConfig.Parlia != nil && w.chainConfig.Parlia.Period == 0) {
-					log.Info("on new tx and parlia.period==0")
 					w.commitNewWork(nil, true, time.Now().Unix())
 				}
 			}
@@ -1084,14 +1082,18 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 			}
 		}
 		if len(localTxs) > 0 {
-			tempCount[7] += len(localTxs)
+			for _, tmpTxs := range localTxs {
+				tempCount[7] += len(tmpTxs)
+			}
 			txs := types.NewTransactionsByPriceAndNonce(w.current.signer, localTxs)
 			if w.commitTransactions(txs, w.coinbase, interrupt) {
 				return
 			}
 		}
 		if len(remoteTxs) > 0 {
-			tempCount[8] += len(remoteTxs)
+			for _, tmpTxs := range remoteTxs {
+				tempCount[8] += len(tmpTxs)
+			}
 			txs := types.NewTransactionsByPriceAndNonce(w.current.signer, remoteTxs)
 			startCommit := time.Now()
 			succeed := w.commitTransactions(txs, w.coinbase, interrupt)
