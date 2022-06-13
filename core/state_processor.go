@@ -380,10 +380,12 @@ func (p *LightStateProcessor) LightProcess(diffLayer *types.DiffLayer, block *ty
 // transactions failed to execute due to insufficient gas it will return an error.
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (*state.StateDB, types.Receipts, []*types.Log, uint64, error) {
 	var (
-		usedGas = new(uint64)
-		header  = block.Header()
-		allLogs []*types.Log
-		gp      = new(GasPool).AddGas(block.GasLimit())
+		usedGas        = new(uint64)
+		header         = block.Header()
+		allLogs        []*types.Log
+		gp             = new(GasPool).AddGas(block.GasLimit())
+		tempCount      = 0
+		tempCountTotal = 0
 	)
 	signer := types.MakeSigner(p.bc.chainConfig, block.Number())
 	executeStart := time.Now()
@@ -427,6 +429,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return statedb, nil, nil, 0, err
 		}
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
+
+		if tmpSimilarCount.HasTx(block.Number(), tx.Hash()) {
+			tempCount++
+		}
+		tempCountTotal++
 		receipt, err, dApplyMessage, dFinalise := applyTransaction4Perf(msg, p.config, p.bc, nil, gp, statedb, header, tx, usedGas, vmenv, bloomProcessors)
 		if err != nil {
 			bloomProcessors.Close()
@@ -438,6 +445,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		commonTxs = append(commonTxs, tx)
 		receipts = append(receipts, receipt)
 	}
+
+	log.Info("state_prefetcher similarity with state_processor", "done", tempCount, "total", tempCountTotal)
 	bloomProcessors.Close()
 	perf.RecordMPMetrics(perf.MpImportingProcessExecute, executeStart)
 	perf.RecordMPMetricsDuration(perf.MpImportingProcessExecuteApplyMessage, totalDApplyMessage)

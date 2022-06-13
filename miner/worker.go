@@ -43,6 +43,45 @@ import (
 
 //0:total, 1:pop1, 2:pop2, 3:pop3, 4:pop4,5:shift1, 6:shift2
 var tempCount [9]int
+var tempCountPrefetcherSimilar int
+
+//var tmpSimilar = &PrefetcherCache{
+//	prefetched: make(map[common.Hash]struct{}),
+//	head:       big.NewInt(0),
+//}
+var tmpSimilar = core.NewDebug4SimilarTxs()
+
+//type PrefetcherCache struct {
+//	prefetched map[common.Hash]struct{}
+//	sync.Mutex
+//	head *big.Int
+//}
+//
+//func (p *PrefetcherCache) ResetHead(n *big.Int) {
+//	p.Lock()
+//	p.head.Set(n)
+//	p.Unlock()
+//}
+//func (p *PrefetcherCache) hasTx(n *big.Int, tx common.Hash) bool {
+//	p.Lock()
+//	defer p.Unlock()
+//	if p.head.Cmp(n) != 0 {
+//		return false
+//	}
+//	if _, ok := p.prefetched[tx]; ok {
+//		return true
+//	}
+//	return false
+//}
+//func (p *PrefetcherCache) UpdateTx(n *big.Int, tx common.Hash) {
+//	p.Lock()
+//	defer p.Unlock()
+//	if p.head.Cmp(n) != 0 {
+//		return
+//	}
+//	p.prefetched[tx] = struct{}{}
+//
+//}
 
 const (
 	// resultQueueSize is the size of channel listening to sealing result.
@@ -814,10 +853,13 @@ func (w *worker) updateSnapshot() {
 	w.snapshotState = w.current.state.Copy()
 }
 
-func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Address, receiptProcessors ...core.ReceiptProcessor) ([]*types.Log, error) {
+func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Address, hn *big.Int, receiptProcessors ...core.ReceiptProcessor) ([]*types.Log, error) {
 	snap := w.current.state.Snapshot()
 
 	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &coinbase, w.current.gasPool, w.current.state, w.current.header, tx, &w.current.header.GasUsed, *w.chain.GetVMConfig(), receiptProcessors...)
+	if tmpSimilar.HasTx(hn, tx.Hash()) {
+		tempCountPrefetcherSimilar++
+	}
 	if err != nil {
 		w.current.state.RevertToSnapshot(snap)
 		return nil, err
@@ -863,10 +905,12 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	interruptCh := make(chan struct{})
 	defer close(interruptCh)
 	//prefetch txs from all pending txs
-	//	txsPrefetch := txs.Copy()
-	//	tx := txsPrefetch.Peek()
-	//	txCurr := &tx
-	//	w.prefetcher.PrefetchMining(txsPrefetch, w.current.header, w.current.gasPool.Gas(), w.current.state.Copy(), *w.chain.GetVMConfig(), interruptCh, txCurr)
+	txsPrefetch := txs.Copy()
+	tx := txsPrefetch.Peek()
+	txCurr := &tx
+	tmpSimilar.ResetPrefetched(w.current.header.Number)
+	tempCountPrefetcherSimilar = 0
+	w.prefetcher.PrefetchMining(txsPrefetch, w.current.header, w.current.gasPool.Gas(), w.current.state.Copy(), *w.chain.GetVMConfig(), interruptCh, txCurr, tmpSimilar)
 	startProcess := time.Now()
 LOOP:
 	for {
@@ -904,7 +948,7 @@ LOOP:
 			}
 		}
 		// Retrieve the next transaction and abort if all done
-		tx := txs.Peek()
+		tx = txs.Peek()
 		if tx == nil {
 			break
 		}
@@ -925,7 +969,7 @@ LOOP:
 		// Start executing the transaction
 		w.current.state.Prepare(tx.Hash(), common.Hash{}, w.current.tcount)
 
-		logs, err := w.commitTransaction(tx, coinbase, bloomProcessors)
+		logs, err := w.commitTransaction(tx, coinbase, w.current.header.Number, bloomProcessors)
 		switch {
 		case errors.Is(err, core.ErrGasLimitReached):
 			// Pop the current out-of-gas transaction without shifting in the next from the account
@@ -1065,7 +1109,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	if len(pending) != 0 {
 		txsRecords.lock.Lock()
 		defer func() {
-			log.Info("countOfSametxs", "height", header.Number.String(), "countOfSameTxs", txsRecords.countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[0].header, "count", txsRecords.txsLists[0].countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[1].header, "count", txsRecords.txsLists[1].countSame, "details-headNum", txsRecords.txsLists[0].header, "countShift", txsRecords.txsLists[0].shift, "countPop", txsRecords.txsLists[0].pop, "details-headNum", txsRecords.txsLists[1].header, "coountShift", txsRecords.txsLists[1].shift, "countPop", txsRecords.txsLists[1].pop, "commitCountTotalExecutedTxs", tempCount[0], "totalLocalTxs", tempCount[7], "totalRemoteTxs", tempCount[8], "pop1", tempCount[1], "pop2", tempCount[2], "pop3", tempCount[3], "pop4", tempCount[4], "shift1", tempCount[5], "shift2", tempCount[6])
+			log.Info("countOfSametxs", "height", header.Number.String(), "countOfSameTxs", txsRecords.countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[0].header, "count", txsRecords.txsLists[0].countSame, "countOfSameTxs-on-block-height", txsRecords.txsLists[1].header, "count", txsRecords.txsLists[1].countSame, "details-headNum", txsRecords.txsLists[0].header, "countShift", txsRecords.txsLists[0].shift, "countPop", txsRecords.txsLists[0].pop, "details-headNum", txsRecords.txsLists[1].header, "coountShift", txsRecords.txsLists[1].shift, "countPop", txsRecords.txsLists[1].pop, "commitCountTotalExecutedTxs", tempCount[0], "totalLocalTxs", tempCount[7], "totalRemoteTxs", tempCount[8], "pop1", tempCount[1], "pop2", tempCount[2], "pop3", tempCount[3], "pop4", tempCount[4], "shift1", tempCount[5], "shift2", tempCount[6], "countOfSameTxsOnPrefetchMining", tempCountPrefetcherSimilar)
 			txsRecords.lock.Unlock()
 		}()
 		txsRecords.resetCount()

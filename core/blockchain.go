@@ -80,6 +80,12 @@ var (
 
 	errInsertionInterrupted        = errors.New("insertion is interrupted")
 	errStateRootVerificationFailed = errors.New("state root verification failed")
+
+	tmpSimilarCount = NewDebug4SimilarTxs()
+	//tmpSimilarCount = &Debug4SimilarTxs{
+	//	prefetched: make(map[common.Hash]struct{}),
+	//	head:       big.NewInt(0),
+	//}
 )
 
 const (
@@ -129,6 +135,43 @@ const (
 	//    * New scheme for contract code in order to separate the codes and trie nodes
 	BlockChainVersion uint64 = 8
 )
+
+type debug4SimilarTxs struct {
+	sync.Mutex
+	prefetched map[common.Hash]struct{}
+	head       *big.Int
+}
+
+func NewDebug4SimilarTxs() *debug4SimilarTxs {
+	return &debug4SimilarTxs{
+		prefetched: make(map[common.Hash]struct{}),
+		head:       big.NewInt(0),
+	}
+}
+func (d *debug4SimilarTxs) ResetPrefetched(h *big.Int) {
+	d.prefetched = make(map[common.Hash]struct{})
+	d.head.Set(h)
+}
+
+func (d *debug4SimilarTxs) HasTx(h *big.Int, tx common.Hash) bool {
+	d.Lock()
+	defer d.Unlock()
+	if d.head.Cmp(h) != 0 {
+		return false
+	}
+	if _, ok := d.prefetched[tx]; ok {
+		return true
+	}
+	return false
+}
+func (d *debug4SimilarTxs) UpdatePrefetch(h *big.Int, tx common.Hash) {
+	d.Lock()
+	defer d.Unlock()
+	if d.head.Cmp(h) != 0 {
+		return
+	}
+	d.prefetched[tx] = struct{}{}
+}
 
 // CacheConfig contains the configuration values for the trie caching/pruning
 // that's resident in a blockchain.
@@ -2132,6 +2175,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		var followupInterrupt uint32
 		// For diff sync, it may fallback to full sync, so we still do prefetch
 		if len(block.Transactions()) >= prefetchTxNumber {
+			tmpSimilarCount.ResetPrefetched(block.Number())
 			throwaway := statedb.Copy()
 			go func(start time.Time, followup *types.Block, throwaway *state.StateDB, interrupt *uint32) {
 				bc.prefetcher.Prefetch(followup, throwaway, bc.vmConfig, &followupInterrupt)

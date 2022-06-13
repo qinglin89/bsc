@@ -85,6 +85,7 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 				}
 				newStatedb.Prepare(tx.Hash(), header.Hash(), i)
 				precacheTransaction(msg, p.config, gaspool, newStatedb, header, evm)
+				tmpSimilarCount.UpdatePrefetch(header.Number, tx.Hash())
 			}
 		}(i)
 	}
@@ -93,10 +94,10 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 // PrefetchMining processes the state changes according to the Ethereum rules by running
 // the transaction messages using the statedb, but any changes are discarded. The
 // only goal is to pre-cache transaction signatures and snapshot clean state. Only used for mining stage
-func (p *statePrefetcher) PrefetchMining(txs *types.TransactionsByPriceAndNonce, header *types.Header, gasLimit uint64, statedb *state.StateDB, cfg vm.Config, interruptCh <-chan struct{}, txCurr **types.Transaction) {
+func (p *statePrefetcher) PrefetchMining(txs *types.TransactionsByPriceAndNonce, header *types.Header, gasLimit uint64, statedb *state.StateDB, cfg vm.Config, interruptCh <-chan struct{}, txCurr **types.Transaction, sim *debug4SimilarTxs) {
 	var signer = types.MakeSigner(p.config, header.Number)
-
 	txCh := make(chan *types.Transaction, 2*prefetchThread)
+	//	sim.ResetPrefetched(header.Number)
 	for i := 0; i < prefetchThread; i++ {
 		go func(startCh <-chan *types.Transaction, stopCh <-chan struct{}) {
 			idx := 0
@@ -117,6 +118,7 @@ func (p *statePrefetcher) PrefetchMining(txs *types.TransactionsByPriceAndNonce,
 					idx++
 					newStatedb.Prepare(tx.Hash(), header.Hash(), idx)
 					precacheTransaction(msg, p.config, gaspool, newStatedb, header, evm)
+					sim.UpdatePrefetch(header.Number, tx.Hash())
 					gaspool = new(GasPool).AddGas(gasLimit)
 				case <-stopCh:
 					return
