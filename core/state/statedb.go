@@ -1062,12 +1062,14 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 }
 func (s *StateDB) Finalise4Prefetcher(deleteEmptyObjects bool) {
 	addressesToPrefetch := make([][]byte, 0, len(s.journal.dirties))
+	c := 0
 	for addr := range s.journal.dirties {
 		obj, exist := s.stateObjects[addr]
 		if !exist {
 			continue
 		}
 		if !obj.suicided && (!deleteEmptyObjects || !obj.empty()) {
+			c++
 			obj.finalise(true) // Prefetch slots in the background
 		}
 		if _, exist := s.stateObjectsDirty[addr]; !exist {
@@ -1075,6 +1077,7 @@ func (s *StateDB) Finalise4Prefetcher(deleteEmptyObjects bool) {
 		}
 	}
 	if s.prefetcher != nil && len(addressesToPrefetch) > 0 {
+		log.Info("Finalise4Prefetcher invoke statePrefetcher", "invoke on storage slots", c)
 		s.prefetcher.prefetch(s.originalRoot, addressesToPrefetch, emptyAddr)
 	}
 	// Invalidate journal because reverting across transactions is not allowed.

@@ -33,6 +33,12 @@ type insertStats struct {
 	startTime                  mclock.AbsTime
 }
 
+var (
+	totalBlocks  = 0
+	totalGas     = 0.0
+	totalElapsed = time.Duration(0)
+)
+
 // statsReportLimit is the time limit during import and export after which we
 // always print out progress. This avoids the user wondering what's going on.
 const statsReportLimit = 8 * time.Second
@@ -54,11 +60,15 @@ func (st *insertStats) report(chain []*types.Block, index int, dirty common.Stor
 		}
 		end := chain[index]
 
+		totalBlocks += st.processed
+		totalGas += float64(st.usedGas)
+		totalElapsed += elapsed
+
 		// Assemble the log context and send it to the logger
 		context := []interface{}{
 			"blocks", st.processed, "txs", txs, "mgas", float64(st.usedGas) / 1000000,
 			"elapsed", common.PrettyDuration(elapsed), "mgasps", float64(st.usedGas) * 1000 / float64(elapsed),
-			"number", end.Number(), "hash", end.Hash(),
+			"number", end.Number(), "hash", end.Hash(), "t_blocks", totalBlocks, "t_mgas", totalGas / 1000000, "t_elapsed", common.PrettyDuration(totalElapsed), "t_mgasps", totalGas * 1000 / float64(totalElapsed),
 		}
 		if timestamp := time.Unix(int64(end.Time()), 0); time.Since(timestamp) > time.Minute {
 			context = append(context, []interface{}{"age", common.PrettyAge(timestamp)}...)
