@@ -1076,8 +1076,9 @@ func (s *StateDB) Finalise4Prefetcher(deleteEmptyObjects bool) {
 			addressesToPrefetch = append(addressesToPrefetch, common.CopyBytes(addr[:])) // Copy needed for closure
 		}
 	}
+	log.Info("Finalise4Prefetcher invoke statePrefetcher", "invoke on storage slots", c)
 	if s.prefetcher != nil && len(addressesToPrefetch) > 0 {
-		log.Info("Finalise4Prefetcher invoke statePrefetcher", "invoke on storage slots", c)
+		log.Info("Finalise4Prefetcher invoke statePrefetcher account")
 		s.prefetcher.prefetch(s.originalRoot, addressesToPrefetch, emptyAddr)
 	}
 	// Invalidate journal because reverting across transactions is not allowed.
