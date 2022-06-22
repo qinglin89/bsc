@@ -209,6 +209,7 @@ func (s *StateDB) StartPrefetcher(namespace string) {
 	if s.snap != nil {
 		s.prefetcher = newTriePrefetcher(s.db, s.originalRoot, namespace)
 	}
+	log.Info("StartPrefetcher", "s.snap==nil", s.snap == nil)
 }
 
 // StopPrefetcher terminates a running prefetcher and reports any leftover stats
@@ -938,9 +939,6 @@ func (s *StateDB) Cpy4Prefetcher() *StateDB {
 		state.accessList = s.accessList.Copy()
 	}
 
-	// If there's a prefetcher running, make an inactive copy of it that can
-	// only access data but does not actively preload (since the user will not
-	// know that they need to explicitly terminate an active copy).
 	if s.prefetcher != nil {
 		state.prefetcher = s.prefetcher.cpy4Prefetcher()
 	}
@@ -1060,29 +1058,30 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
 }
-func (s *StateDB) Finalise4Prefetcher(deleteEmptyObjects bool) {
+func (s *StateDB) Finalise4Prefetcher(deleteEmptyObjects bool) (int, int) {
 	addressesToPrefetch := make([][]byte, 0, len(s.journal.dirties))
-	c := 0
+	c1, c2 := 0, 0
 	for addr := range s.journal.dirties {
 		obj, exist := s.stateObjects[addr]
 		if !exist {
 			continue
 		}
 		if !obj.suicided && (!deleteEmptyObjects || !obj.empty()) {
-			c++
+			c2++
 			obj.finalise(true) // Prefetch slots in the background
 		}
 		if _, exist := s.stateObjectsDirty[addr]; !exist {
+			s.stateObjectsDirty[addr] = struct{}{}
 			addressesToPrefetch = append(addressesToPrefetch, common.CopyBytes(addr[:])) // Copy needed for closure
 		}
 	}
-	log.Info("Finalise4Prefetcher invoke statePrefetcher", "invoke on storage slots", c)
 	if s.prefetcher != nil && len(addressesToPrefetch) > 0 {
-		log.Info("Finalise4Prefetcher invoke statePrefetcher account")
 		s.prefetcher.prefetch(s.originalRoot, addressesToPrefetch, emptyAddr)
+		c1 += len(addressesToPrefetch)
 	}
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
+	return c1, c2
 }
 
 // IntermediateRoot computes the current root hash of the state trie.

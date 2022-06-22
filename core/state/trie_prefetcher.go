@@ -172,9 +172,8 @@ func (p *triePrefetcher) copy() *triePrefetcher {
 }
 func (p *triePrefetcher) cpy4Prefetcher() *triePrefetcher {
 	cpy := &triePrefetcher{
-		db:   p.db,
-		root: p.root,
-		//	fetches: make(map[common.Hash]Trie), // Active prefetchers use the fetches map
+		db:       p.db,
+		root:     p.root,
 		fetchers: p.fetchers,
 
 		deliveryMissMeter: p.deliveryMissMeter,
@@ -187,17 +186,6 @@ func (p *triePrefetcher) cpy4Prefetcher() *triePrefetcher {
 		storageSkipMeter:  p.storageSkipMeter,
 		storageWasteMeter: p.storageWasteMeter,
 	}
-	// If the prefetcher is already a copy, duplicate the data
-	//	if p.fetches != nil {
-	//		for root, fetch := range p.fetches {
-	//			cpy.fetches[root] = p.db.CopyTrie(fetch)
-	//		}
-	//		return cpy
-	//	}
-	// Otherwise we're copying an active fetcher, retrieve the current states
-	//	for root, fetcher := range p.fetchers {
-	//		cpy.fetches[root] = fetcher.peek()
-	//	}
 	return cpy
 }
 
