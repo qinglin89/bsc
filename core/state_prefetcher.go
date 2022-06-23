@@ -70,7 +70,9 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 		go func(idx int) {
 			c1, c2 := 0, 0
 			defer func() {
-				log.Info("trirePrefetchOnStatePrefetch", "account", c1, "storageSlots", c2)
+				if c1 > 0 {
+					log.Info("trirePrefetchOnStatePrefetch", "account", c1, "storageSlots", c2)
+				}
 			}()
 			newStatedb := statedb.Cpy4Prefetcher()
 			newStatedb.EnableWriteOnSharedStorage()
