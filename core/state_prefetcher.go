@@ -72,7 +72,6 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 			defer func() {
 				log.Info("trirePrefetchOnStatePrefetch", "account", c1, "storageSlots", c2)
 			}()
-			//			newStatedb := statedb.Copy()
 			newStatedb := statedb.Cpy4Prefetcher()
 			newStatedb.EnableWriteOnSharedStorage()
 			gaspool := new(GasPool).AddGas(block.GasLimit())
@@ -165,7 +164,6 @@ func precacheTransaction(msg types.Message, config *params.ChainConfig, gaspool 
 		return 0, 0
 	}
 	if config.IsByzantium(header.Number) {
-		//	TODO
 		return statedb.Finalise4Prefetcher(true)
 	}
 	return 0, 0
