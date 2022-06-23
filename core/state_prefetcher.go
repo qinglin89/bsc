@@ -158,7 +158,6 @@ func precacheTransaction(msg types.Message, config *params.ChainConfig, gaspool 
 		return
 	}
 	if config.IsByzantium(header.Number) {
-		//	TODO
 		statedb.Finalise4Prefetcher(true)
 	}
 }
