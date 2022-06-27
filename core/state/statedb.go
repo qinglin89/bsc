@@ -209,6 +209,7 @@ func (s *StateDB) StartPrefetcher(namespace string) {
 	if s.snap != nil {
 		s.prefetcher = newTriePrefetcher(s.db, s.originalRoot, namespace)
 	}
+	log.Info("StartPrefetcher", "s.snap==nil", s.snap == nil)
 }
 
 // StopPrefetcher terminates a running prefetcher and reports any leftover stats
@@ -973,14 +974,16 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
 }
-func (s *StateDB) Finalise4Prefetcher(deleteEmptyObjects bool) {
+func (s *StateDB) Finalise4Prefetcher(deleteEmptyObjects bool) (int, int) {
 	addressesToPrefetch := make([][]byte, 0, len(s.journal.dirties))
+	c1, c2 := 0, 0
 	for addr := range s.journal.dirties {
 		obj, exist := s.stateObjects[addr]
 		if !exist {
 			continue
 		}
 		if !obj.suicided && (!deleteEmptyObjects || !obj.empty()) {
+			c2++
 			obj.finalise(true) // Prefetch slots in the background
 		}
 		if _, exist := s.stateObjectsDirty[addr]; !exist {
@@ -990,9 +993,11 @@ func (s *StateDB) Finalise4Prefetcher(deleteEmptyObjects bool) {
 	}
 	if s.prefetcher != nil && len(addressesToPrefetch) > 0 {
 		s.prefetcher.prefetch(s.originalRoot, addressesToPrefetch, emptyAddr)
+		c1 += len(addressesToPrefetch)
 	}
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
+	return c1, c2
 }
 
 // IntermediateRoot computes the current root hash of the state trie.

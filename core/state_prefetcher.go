@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -58,6 +59,12 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 	// No need to execute the first batch, since the main processor will do it.
 	for i := 0; i < prefetchThread; i++ {
 		go func() {
+			c1, c2 := 0, 0
+			defer func() {
+				if c1 > 0 {
+					log.Info("trirePrefetchOnStatePrefetch", "account", c1, "storageSlots", c2)
+				}
+			}()
 			newStatedb := statedb.Cpy4Prefetcher()
 			newStatedb.EnableWriteOnSharedStorage()
 			gaspool := new(GasPool).AddGas(block.GasLimit())
@@ -74,7 +81,9 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 						return // Also invalid block, bail out
 					}
 					newStatedb.Prepare(tx.Hash(), header.Hash(), txIndex)
-					precacheTransaction(msg, p.config, gaspool, newStatedb, header, evm)
+					tc1, tc2 := precacheTransaction(msg, p.config, gaspool, newStatedb, header, evm)
+					c1 += tc1
+					c2 += tc2
 
 				case <-interruptCh:
 					// If block precaching was interrupted, abort
@@ -149,14 +158,15 @@ func (p *statePrefetcher) PrefetchMining(txs *types.TransactionsByPriceAndNonce,
 // precacheTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. The goal is not to execute
 // the transaction successfully, rather to warm up touched data slots.
-func precacheTransaction(msg types.Message, config *params.ChainConfig, gaspool *GasPool, statedb *state.StateDB, header *types.Header, evm *vm.EVM) {
+func precacheTransaction(msg types.Message, config *params.ChainConfig, gaspool *GasPool, statedb *state.StateDB, header *types.Header, evm *vm.EVM) (int, int) {
 	// Update the evm with the new transaction context.
 	evm.Reset(NewEVMTxContext(msg), statedb)
 	// Add addresses to access list if applicable
 	if _, err := ApplyMessage(evm, msg, gaspool); err != nil {
-		return
+		return 0, 0
 	}
 	if config.IsByzantium(header.Number) {
-		statedb.Finalise4Prefetcher(true)
+		return statedb.Finalise4Prefetcher(true)
 	}
+	return 0, 0
 }
