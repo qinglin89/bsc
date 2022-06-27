@@ -133,14 +133,6 @@ func (p *triePrefetcher) close() {
 		}
 	}
 	close(p.closeChan)
-<<<<<<< HEAD
-||||||| 2f2b98abb
-	// Clear out all fetchers (will crash on a second call, deliberate)
-	p.fetchers = nil
-=======
-	// Clear out all fetchers (will crash on a second call, deliberate)
-	//	p.fetchers = nil
->>>>>>> trieprefetchOnstateprefetch-perf-drm
 }
 
 // copy creates a deep-but-inactive copy of the trie prefetcher. Any trie data
