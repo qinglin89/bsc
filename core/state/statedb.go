@@ -928,6 +928,16 @@ func (s *StateDB) WaitPipeVerification() error {
 	return nil
 }
 
+func (s *StateDB) WaitPipeVerificationOnHash(block common.Hash) error {
+	snapshot := s.snaps.Snapshot(block)
+	if snapshot != nil {
+		if valid := snapshot.WaitAndGetVerifyRes(); !valid {
+			return fmt.Errorf("verification on parent snap failed")
+		}
+	}
+	return nil
+}
+
 // Finalise finalises the state by removing the s destructed objects and clears
 // the journal as well as the refunds. Finalise, however, will not push any updates
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
@@ -1357,6 +1367,11 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 			if s.pipeCommit {
 				<-snapUpdated
 				// Due to state verification pipeline, the accounts roots are not updated, leading to the data in the difflayer is not correct, capture the correct data here
+				if err := s.WaitPipeVerificationOnHash(s.originalRoot); err != nil {
+					return err
+				}
+				//				s.CorrectAccountsRoot(common.Hash{})
+				s.CorrectAccountsRoot(s.originalRoot)
 				s.AccountsIntermediateRoot()
 				if parent := s.snap.Root(); parent != s.expectedRoot {
 					accountData := make(map[common.Hash][]byte)
