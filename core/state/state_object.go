@@ -428,13 +428,12 @@ func (s *StateObject) updateTrie(db Database) Trie {
 		defer wg.Done()
 		for key, value := range dirtyStorage {
 			if !s.deleted {
-				s.setError(tr.TryUpdate(key[:], value))
+				if len(value) == 0 {
+					s.setError(tr.TryDelete(key[:]))
+				} else {
+					s.setError(tr.TryUpdate(key[:], value))
+				}
 			}
-			//			if len(value) == 0 {
-			//				s.setError(tr.TryDelete(key[:]))
-			//			} else {
-			//				s.setError(tr.TryUpdate(key[:], value))
-			//			}
 			usedStorage = append(usedStorage, common.CopyBytes(key[:]))
 		}
 	}()
