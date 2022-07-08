@@ -50,10 +50,6 @@ var (
 	// emptyRoot is the known root hash of an empty trie.
 	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 
-	// dummyRoot is the dummy account root before corrected in pipecommit sync mode,
-	// the value is 542e5fc2709de84248e9bce43a9c0c8943a608029001360f8ab55bf113b23d28
-	//dummyRoot = crypto.Keccak256Hash([]byte("dummy_account_root"))
-
 	emptyAddr = crypto.Keccak256Hash(common.Address{}.Bytes())
 )
 
@@ -1370,7 +1366,6 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 				if err := s.WaitPipeVerificationOnHash(s.originalRoot); err != nil {
 					return err
 				}
-				//				s.CorrectAccountsRoot(common.Hash{})
 				s.CorrectAccountsRoot(s.originalRoot)
 				s.AccountsIntermediateRoot()
 				if parent := s.snap.Root(); parent != s.expectedRoot {
