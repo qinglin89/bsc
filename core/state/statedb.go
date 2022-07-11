@@ -216,6 +216,7 @@ func (s *StateDB) StartPrefetcher(namespace string) {
 	if s.snap != nil {
 		s.prefetcher = newTriePrefetcher(s.db, s.originalRoot, namespace)
 	}
+	log.Info("StartPrefetcher", "s.snap==nil", s.snap == nil)
 }
 
 // StopPrefetcher terminates a running prefetcher and reports any leftover stats
@@ -1011,6 +1012,7 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 		return
 	}
 	if accounts, err := snapshot.Accounts(); err == nil && accounts != nil {
+		tmpCount := 0
 		for _, obj := range s.stateObjects {
 			if !obj.deleted && obj.rootStale {
 				if account, exist := accounts[crypto.Keccak256Hash(obj.address[:])]; exist {
@@ -1021,9 +1023,13 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 					if account, err := snapshot.Account(crypto.Keccak256Hash(obj.address[:])); err == nil {
 						obj.data.Root = common.BytesToHash(account.Root)
 						obj.rootStale = false
+						tmpCount++
 					}
 				}
 			}
+		}
+		if tmpCount > 0 {
+			log.Info("CorrectAccountsRoot from layers before previous one", "countOfAccounts", tmpCount)
 		}
 	}
 }
