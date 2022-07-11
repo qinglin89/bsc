@@ -1018,8 +1018,12 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 					obj.rootStale = false
 				} else {
 					//for previous snapshot update(more than one layer)
-					if account, err := snapshot.Account(crypto.Keccak256Hash(obj.address[:])); err == nil {
-						obj.data.Root = common.BytesToHash(account.Root)
+					if account, err := snapshot.Account(crypto.Keccak256Hash(obj.address[:])); err == nil && account != nil {
+						if account == nil {
+							obj.data.Root = common.Hash{}
+						} else {
+							obj.data.Root = common.BytesToHash(account.Root)
+						}
 						obj.rootStale = false
 					}
 				}
