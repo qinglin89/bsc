@@ -929,7 +929,7 @@ func (s *StateDB) WaitPipeVerificationOnHash(block common.Hash) error {
 	snapshot := s.snaps.Snapshot(block)
 	if snapshot != nil {
 		if valid := snapshot.WaitAndGetVerifyRes(); !valid {
-			return fmt.Errorf("verification on parent snap failed")
+			return fmt.Errorf("WaitPipeVerificationOnHash: verification on parent snap failed")
 		}
 	}
 	return nil
@@ -1013,6 +1013,7 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 	}
 	if accounts, err := snapshot.Accounts(); err == nil && accounts != nil {
 		tmpCount := 0
+		tmpZCount := 0
 		for _, obj := range s.stateObjects {
 			if !obj.deleted && obj.rootStale {
 				if account, exist := accounts[crypto.Keccak256Hash(obj.address[:])]; exist {
@@ -1023,6 +1024,7 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 					if account, err := snapshot.Account(crypto.Keccak256Hash(obj.address[:])); err == nil && account != nil {
 						if account == nil {
 							obj.data.Root = common.Hash{}
+							tmpZCount++
 						} else {
 							obj.data.Root = common.BytesToHash(account.Root)
 						}
@@ -1033,7 +1035,7 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 			}
 		}
 		if tmpCount > 0 {
-			log.Info("CorrectAccountsRoot from layers before previous one", "countOfAccounts", tmpCount)
+			log.Info("CorrectAccountsRoot from layers before previous one", "countOfAccounts", tmpCount, "tmpOfZeroAccounts", tmpZCount)
 		}
 	}
 }
@@ -1397,6 +1399,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 				log.Error("Invalid merkle root", "remote", s.expectedRoot, "local", s.stateRoot)
 				return fmt.Errorf("invalid merkle root (remote: %x local: %x)", s.expectedRoot, s.stateRoot)
 			}
+			log.Info("commitTrie: valid merkle root", "root", s.expectedRoot)
 
 			tasks := make(chan func())
 			taskResults := make(chan error, len(s.stateObjectsDirty))
