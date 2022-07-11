@@ -1018,7 +1018,7 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 					obj.rootStale = false
 				} else {
 					//for previous snapshot update(more than one layer)
-					if account, _ := snapshot.Account(crypto.Keccak256Hash(obj.address[:])); account != nil {
+					if account, err := snapshot.Account(crypto.Keccak256Hash(obj.address[:])); err == nil {
 						obj.data.Root = common.BytesToHash(account.Root)
 						obj.rootStale = false
 					}
@@ -1364,7 +1364,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 		snapUpdated = make(chan struct{})
 	}
 
-	commmitTrie := func() error {
+	commitTrie := func() error {
 		commitErr := func() error {
 			if s.pipeCommit {
 				<-snapUpdated
@@ -1533,7 +1533,10 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 					if err != nil {
 						log.Warn("Failed to update snapshot tree", "from", parent, "to", s.expectedRoot, "err", err)
 					}
-
+					//CHECK VERIFIED ON THE HIGHEST LAYER OF FLATENLAYERS then call Cap(), verifing of snapshot is in order. on layer would only be verified unless its parent had been verified yet.
+					if err = s.snaps.WaitPreviousVerified(s.expectedRoot, s.snaps.CapLimit()); err != nil {
+						return err
+					}
 					// Keep n diff layers in the memory
 					// - head layer is paired with HEAD state
 					// - head-1 layer is paired with HEAD-1 state
@@ -1549,9 +1552,9 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 		},
 	}
 	if s.pipeCommit {
-		go commmitTrie()
+		go commitTrie()
 	} else {
-		commitFuncs = append(commitFuncs, commmitTrie)
+		commitFuncs = append(commitFuncs, commitTrie)
 	}
 	commitRes := make(chan error, len(commitFuncs))
 	for _, f := range commitFuncs {
