@@ -1054,9 +1054,7 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 				}
 			}
 		}
-		if tmpCount > 0 {
-			log.Info("CorrectAccountsRoot from layers before previous one", "countOfAccounts", tmpCount, "tmpOfZeroAccounts", tmpZCount, "totalNonZAccountsChecked", tmpCountT, "latestRoot", blockRoot, "CorrectOnLatest", tmpCountO, "CorrectOnLatestTotal", tmpCountOT)
-		}
+		log.Info("CorrectAccountsRoot from layers before previous one", "countOfAccounts", tmpCount, "tmpOfZeroAccounts", tmpZCount, "totalNonZAccountsChecked", tmpCountT, "latestRoot", blockRoot, "CorrectOnLatest", tmpCountO, "CorrectOnLatestTotal", tmpCountOT)
 	}
 }
 
