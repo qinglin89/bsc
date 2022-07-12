@@ -1507,24 +1507,28 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 			}
 			log.Info("CommitTrie wgWait")
 			wg.Wait()
-			log.Info("CommitTrie return")
+			log.Info("CommitTrie return nil", "root", s.expectedRoot)
 			return nil
 		}()
 
 		if s.pipeCommit {
 			if commitErr == nil {
+				log.Info("CommitTire before close verified with nil err", "expectedRoot", s.expectedRoot, "stateRoot", s.stateRoot)
 				s.snaps.Snapshot(s.stateRoot).MarkValid()
 				close(verified)
 			} else {
+				log.Info("CommitTire before close verified with error", "errInfo", err, "expectedRoot", s.expectedRoot, "stateRoot", s.stateRoot)
+
 				// The blockchain will do the further rewind if write block not finish yet
 				close(verified)
 				if failPostCommitFunc != nil {
 					failPostCommitFunc()
 				}
-				log.Error("state verification failed", "err", commitErr)
+				log.Error("state verification failed", "err", commitErr, "root", s.expectedRoot)
 			}
-			log.Info("CommitTire close verified")
+			log.Info("CommitTire close verified", "root", s.expectedRoot)
 		}
+		log.Info("CommitTrie return afterAll", "root", s.expectedRoot)
 		return commitErr
 	}
 

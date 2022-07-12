@@ -396,8 +396,8 @@ func (t *Tree) WaitPreviousVerified(root common.Hash, layers int) error {
 	diff.origin.lock.RUnlock()
 
 	// Run the internal capping and discard all stale layers
-	t.lock.Lock()
-	defer t.lock.Unlock()
+	//	t.lock.Lock()
+	//	defer t.lock.Unlock()
 
 	// Flattening the bottom-most diff layer requires special casing since there's
 	// no child to rewire to the grandparent. In that case we can fake a temporary
