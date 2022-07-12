@@ -266,6 +266,7 @@ func (dl *diffLayer) Root() common.Hash {
 // WaitAndGetVerifyRes will wait until the diff layer been verified and return the verification result
 func (dl *diffLayer) WaitAndGetVerifyRes() bool {
 	if dl.verifiedCh == nil {
+		log.Info("WatiAndGetVerifyRes return as valid on nil root", dl.root)
 		return true
 	}
 	log.Info("WaitAndGetVerifyRes", "check on root", dl.root)
