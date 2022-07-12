@@ -18,6 +18,7 @@
 package state
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -1026,10 +1027,13 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 							obj.data.Root = common.Hash{}
 							tmpZCount++
 						} else {
-							obj.data.Root = common.BytesToHash(account.Root)
+							if bytes.Compare(obj.data.Root[:], account.Root) != 0 {
+								obj.data.Root = common.BytesToHash(account.Root)
+								tmpCount++
+							}
+							//							obj.data.Root = common.BytesToHash(account.Root)
 						}
 						obj.rootStale = false
-						tmpCount++
 					}
 				}
 			}
