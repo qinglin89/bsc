@@ -1464,15 +1464,18 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 			for i := 0; i < tasksNum; i++ {
 				err := <-taskResults
 				if err != nil {
+					log.Info("CommitTrie stateObjects.CommitTrie finish with error", "errInfo", err)
 					close(finishCh)
 					return err
 				}
 			}
 			close(finishCh)
+			log.Info("CommitTrie stateObjects.CommitTrie complete")
 
 			// The onleaf func is called _serially_, so we can reuse the same account
 			// for unmarshalling every time.
 			if !s.noTrie {
+				log.Info("CommitTrie stateDB.CommitTrie")
 				var account types.StateAccount
 				root, _, err := s.trie.Commit(func(_ [][]byte, _ []byte, leaf []byte, parent common.Hash) error {
 					if err := rlp.DecodeBytes(leaf, &account); err != nil {
@@ -1484,20 +1487,27 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 					return nil
 				})
 				if err != nil {
+					log.Info("CommitTrie stateDB.CommitTrie error return", "errInfo", err)
 					return err
 				}
 				if root != emptyRoot {
 					s.db.CacheAccount(root, s.trie)
 				}
+				log.Info("CommitTrie stateDB.CommitTrie complete")
 			}
 
 			for _, postFunc := range postCommitFuncs {
+				log.Info("CommitTrie postFunc")
 				err := postFunc()
 				if err != nil {
+					log.Info("CommitTrie postFunc error return", "errInfo", err)
 					return err
 				}
+				log.Info("CommitTrie postFunc complete")
 			}
+			log.Info("CommitTrie wgWait")
 			wg.Wait()
+			log.Info("CommitTrie return")
 			return nil
 		}()
 
@@ -1513,6 +1523,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 				}
 				log.Error("state verification failed", "err", commitErr)
 			}
+			log.Info("CommitTire close verified")
 		}
 		return commitErr
 	}
