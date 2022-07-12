@@ -270,7 +270,7 @@ func (dl *diffLayer) WaitAndGetVerifyRes() bool {
 	}
 	log.Info("WaitAndGetVerifyRes", "check on root", dl.root)
 	<-dl.verifiedCh
-	log.Info("WaitAndGetVerifyRes", "root", dl.root)
+	log.Info("WaitAndGetVerifyRes", "root", dl.root, "valid", dl.valid)
 	return dl.valid
 }
 
