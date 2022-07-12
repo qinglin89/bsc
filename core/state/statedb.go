@@ -216,7 +216,7 @@ func (s *StateDB) StartPrefetcher(namespace string) {
 	if s.snap != nil {
 		s.prefetcher = newTriePrefetcher(s.db, s.originalRoot, namespace)
 	}
-	log.Info("StartPrefetcher", "s.snap==nil", s.snap == nil, "len(layers)", s.snaps.Layers())
+	log.Info("StartPrefetcher", "s.snap==nil", s.snap == nil, "len(layers)", s.snaps.Layers(), "root", s.originalRoot)
 }
 
 // StopPrefetcher terminates a running prefetcher and reports any leftover stats
