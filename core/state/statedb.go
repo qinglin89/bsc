@@ -1010,19 +1010,27 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 	}
 
 	if snapshot == nil {
+		log.Info("CorrectAccountsRoot return on nil snapshot", "root", blockRoot)
 		return
 	}
 	if accounts, err := snapshot.Accounts(); err == nil && accounts != nil {
 		tmpCount := 0
 		tmpZCount := 0
+		tmpCountT := 0
+		tmpCountO := 0
+		tmpCountOT := 0
 		for _, obj := range s.stateObjects {
 			if !obj.deleted && obj.rootStale {
 				if account, exist := accounts[crypto.Keccak256Hash(obj.address[:])]; exist {
 					obj.data.Root = common.BytesToHash(account.Root)
 					obj.rootStale = false
+					if bytes.Compare(obj.data.Root[:], account.Root) != 0 {
+						tmpCountO++
+					}
+					tmpCountOT++
 				} else {
 					//for previous snapshot update(more than one layer)
-					if account, err := snapshot.Account(crypto.Keccak256Hash(obj.address[:])); err == nil && account != nil {
+					if account, err := snapshot.Account(crypto.Keccak256Hash(obj.address[:])); err == nil {
 						if account == nil {
 							obj.data.Root = common.Hash{}
 							tmpZCount++
@@ -1031,6 +1039,7 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 								obj.data.Root = common.BytesToHash(account.Root)
 								tmpCount++
 							}
+							tmpCountT++
 							//							obj.data.Root = common.BytesToHash(account.Root)
 						}
 						obj.rootStale = false
@@ -1039,7 +1048,7 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 			}
 		}
 		if tmpCount > 0 {
-			log.Info("CorrectAccountsRoot from layers before previous one", "countOfAccounts", tmpCount, "tmpOfZeroAccounts", tmpZCount, "latestRoot", blockRoot)
+			log.Info("CorrectAccountsRoot from layers before previous one", "countOfAccounts", tmpCount, "tmpOfZeroAccounts", tmpZCount, "totalNonZAccountsChecked", tmpCountT, "latestRoot", blockRoot, "CorrectOnLatest", tmpCountO, "CorrectOnLatestTotal", tmpCountOT)
 		}
 	}
 }
@@ -1397,7 +1406,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 					}
 					s.snaps.Snapshot(s.expectedRoot).CorrectAccounts(accountData)
 				}
-				log.Info("pipeCommit CorrectAccountsRoot")
+				log.Info("pipeCommit CorrectAccountsRoot", "correctOnRoot", s.originalRoot, "currentRoot", s.expectedRoot)
 			}
 
 			if s.stateRoot = s.StateIntermediateRoot(); s.fullProcessed && s.expectedRoot != s.stateRoot {
