@@ -1393,6 +1393,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 					}
 					s.snaps.Snapshot(s.expectedRoot).CorrectAccounts(accountData)
 				}
+				log.Info("pipeCommit CorrectAccountsRoot")
 			}
 
 			if s.stateRoot = s.StateIntermediateRoot(); s.fullProcessed && s.expectedRoot != s.stateRoot {
@@ -1548,6 +1549,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 					}
 					//CHECK VERIFIED ON THE HIGHEST LAYER OF FLATENLAYERS then call Cap(), verifing of snapshot is in order. on layer would only be verified unless its parent had been verified yet.
 					if err = s.snaps.WaitPreviousVerified(s.expectedRoot, s.snaps.CapLimit()); err != nil {
+						log.Info("WaitPreviousVerified ERROR", "errInfo", err)
 						return err
 					}
 					// Keep n diff layers in the memory

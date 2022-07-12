@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	bloomfilter "github.com/holiman/bloomfilter/v2"
 )
@@ -267,7 +268,9 @@ func (dl *diffLayer) WaitAndGetVerifyRes() bool {
 	if dl.verifiedCh == nil {
 		return true
 	}
+	log.Info("WaitAndGetVerifyRes", "check on root", dl.root)
 	<-dl.verifiedCh
+	log.Info("WaitAndGetVerifyRes", "root", dl.root)
 	return dl.valid
 }
 

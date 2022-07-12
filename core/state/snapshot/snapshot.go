@@ -425,7 +425,7 @@ func (t *Tree) WaitPreviousVerified(root common.Hash, layers int) error {
 		return nil
 	case *diffLayer:
 		if !parent.WaitAndGetVerifyRes() {
-			return fmt.Errorf("snapshot [%#x] is not valid", root)
+			return fmt.Errorf("parent's(1st layer to be flattened to disk) snapshot [%#x] is not valid", parent.Root())
 		}
 		return nil
 	default:
