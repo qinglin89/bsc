@@ -1517,7 +1517,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 				s.snaps.Snapshot(s.stateRoot).MarkValid()
 				close(verified)
 			} else {
-				log.Info("CommitTire before close verified with error", "errInfo", err, "expectedRoot", s.expectedRoot, "stateRoot", s.stateRoot)
+				log.Info("CommitTire before close verified with error", "errInfo", commitErr, "expectedRoot", s.expectedRoot, "stateRoot", s.stateRoot)
 
 				// The blockchain will do the further rewind if write block not finish yet
 				close(verified)
