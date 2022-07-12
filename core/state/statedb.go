@@ -283,6 +283,7 @@ func (s *StateDB) Error() error {
 // Not thread safe
 func (s *StateDB) Trie() (Trie, error) {
 	if s.trie == nil {
+		log.Info("StateDB.Trie invoke WaitPipeVerification on nil trie", "root", s.originalRoot)
 		err := s.WaitPipeVerification()
 		if err != nil {
 			return nil, err
@@ -919,9 +920,12 @@ func (s *StateDB) GetRefund() uint64 {
 func (s *StateDB) WaitPipeVerification() error {
 	// Need to wait for the parent trie to commit
 	if s.snap != nil {
+		log.Info("WaitPipeVerification", "root", s.snap.Root())
 		if valid := s.snap.WaitAndGetVerifyRes(); !valid {
+			log.Info("WaitPipeVerification Invalid", "root", s.snap.Root())
 			return fmt.Errorf("verification on parent snap failed")
 		}
+		log.Info("WaitPipeVerification valid", "root", s.snap.Root())
 	}
 	return nil
 }
@@ -929,9 +933,12 @@ func (s *StateDB) WaitPipeVerification() error {
 func (s *StateDB) WaitPipeVerificationOnHash(block common.Hash) error {
 	snapshot := s.snaps.Snapshot(block)
 	if snapshot != nil {
+		log.Info("WaitPipeVerificationOnHash", "blocRoot", block)
 		if valid := snapshot.WaitAndGetVerifyRes(); !valid {
+			log.Info("WaitPipeVerificationOnHash Invalid", "blocRoot", block)
 			return fmt.Errorf("WaitPipeVerificationOnHash: verification on parent snap failed")
 		}
+		log.Info("WaitPipeVerificationOnHash valid", "blocRoot", block)
 	}
 	return nil
 }
