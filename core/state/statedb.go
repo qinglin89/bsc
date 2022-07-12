@@ -1548,6 +1548,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 						log.Warn("Failed to update snapshot tree", "from", parent, "to", s.expectedRoot, "err", err)
 					}
 					//CHECK VERIFIED ON THE HIGHEST LAYER OF FLATENLAYERS then call Cap(), verifing of snapshot is in order. on layer would only be verified unless its parent had been verified yet.
+					log.Info("WaitPreviousVerified waitAndCheck")
 					if err = s.snaps.WaitPreviousVerified(s.expectedRoot, s.snaps.CapLimit()); err != nil {
 						log.Info("WaitPreviousVerified ERROR", "errInfo", err)
 						return err
