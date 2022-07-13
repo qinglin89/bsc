@@ -216,6 +216,7 @@ func (s *StateDB) StartPrefetcher(namespace string) {
 	if s.snap != nil {
 		s.prefetcher = newTriePrefetcher(s.db, s.originalRoot, namespace)
 	}
+	log.Info("StartPrefetcher", "s.snap==nil", s.snap==nil, "len(layers)", s.snaps.Layers())
 }
 
 // StopPrefetcher terminates a running prefetcher and reports any leftover stats
@@ -1360,6 +1361,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 						accountData[crypto.Keccak256Hash(k[:])] = v
 					}
 					s.snaps.Snapshot(s.expectedRoot).CorrectAccounts(accountData)
+					log.Info("pipeCommit CorrectAccounts")
 				}
 			}
 
@@ -1367,6 +1369,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 				log.Error("Invalid merkle root", "remote", s.expectedRoot, "local", s.stateRoot)
 				return fmt.Errorf("invalid merkle root (remote: %x local: %x)", s.expectedRoot, s.stateRoot)
 			}
+			log.Info("Valid merkle root")
 
 			tasks := make(chan func())
 			taskResults := make(chan error, len(s.stateObjectsDirty))
