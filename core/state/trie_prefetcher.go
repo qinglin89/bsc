@@ -120,6 +120,7 @@ func (p *triePrefetcher) mainLoop() {
 				<-fetcher.term
 				if metrics.EnabledExpensive {
 					if fetcher.root == p.root {
+						log.Info("Prefetcher statistics", "root", p.root, "accountLoad", len(fetcher.seen), "accountDup", fetcher.dups, "accountSkip", len(fetcher.tasks))
 						p.accountLoadMeter.Mark(int64(len(fetcher.seen)))
 						p.accountDupMeter.Mark(int64(fetcher.dups))
 						p.accountSkipMeter.Mark(int64(len(fetcher.tasks)))
@@ -129,7 +130,10 @@ func (p *triePrefetcher) mainLoop() {
 						}
 						fetcher.lock.Unlock()
 						p.accountWasteMeter.Mark(int64(len(fetcher.seen)))
+						log.Info("Prefetcher statistics", "root", p.root, "accountWaste", len(fetcher.seen))
+
 					} else {
+						log.Info("Prefetcher statistics", "root", p.root, "StorageLoad", len(fetcher.seen), "StorageDup", fetcher.dups, "StorageSkip", len(fetcher.tasks), "storageRoot", fetcher.root)
 						p.storageLoadMeter.Mark(int64(len(fetcher.seen)))
 						p.storageDupMeter.Mark(int64(fetcher.dups))
 						p.storageSkipMeter.Mark(int64(len(fetcher.tasks)))
@@ -140,6 +144,7 @@ func (p *triePrefetcher) mainLoop() {
 						}
 						fetcher.lock.Unlock()
 						p.storageWasteMeter.Mark(int64(len(fetcher.seen)))
+						log.Info("Prefetcher statistics", "root", p.root, "storageWaste", len(fetcher.seen), "storageRoot", fetcher.root)
 					}
 				}
 			}
