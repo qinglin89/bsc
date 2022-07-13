@@ -135,7 +135,6 @@ func (p *triePrefetcher) mainLoop() {
 					log.Info("Prefetcher statistics", "root", p.root, "accountWaste", len(fetcher.seen))
 
 				} else {
-					log.Info("Prefetcher statistics", "root", p.root, "StorageLoad", len(fetcher.seen), "StorageDup", fetcher.dups, "StorageSkip", len(fetcher.tasks), "storageRoot", fetcher.root)
 					tmpS += 1
 					tmpSL += len(fetcher.seen)
 					tmpSD += fetcher.dups
@@ -151,7 +150,6 @@ func (p *triePrefetcher) mainLoop() {
 					fetcher.lock.Unlock()
 					p.storageWasteMeter.Mark(int64(len(fetcher.seen)))
 					tmpSW += len(fetcher.seen)
-					log.Info("Prefetcher statistics", "root", p.root, "storageWaste", len(fetcher.seen), "storageRoot", fetcher.root)
 				}
 				//}
 			}
