@@ -116,26 +116,32 @@ func (p *triePrefetcher) mainLoop() {
 
 		case <-p.closeMainChan:
 			log.Info("Prefetcher statistics", "root", p.root)
-			tmpSL, tmpSD, tmpSS, tmpSW, tmpS := 0, 0, 0, 0, 0
+			tmpSL, tmpSD, tmpSS, tmpSW, tmpS, tmpH, tmpU := 0, 0, 0, 0, 0, 0, 0
 			for _, fetcher := range p.fetchers {
 				p.abortChan <- fetcher // safe to do multiple times
 				<-fetcher.term
 				//				if metrics.EnabledExpensive {
 				if fetcher.root == p.root {
 					tmpAL := len(fetcher.seen)
+					tmpAH := 0
 					log.Info("Prefetcher statistics", "root", p.root, "accountLoad", len(fetcher.seen), "accountDup", fetcher.dups, "accountSkip", len(fetcher.tasks))
 					p.accountLoadMeter.Mark(int64(len(fetcher.seen)))
 					p.accountDupMeter.Mark(int64(fetcher.dups))
 					p.accountSkipMeter.Mark(int64(len(fetcher.tasks)))
 					fetcher.lock.Lock()
 					for _, key := range fetcher.used {
-						delete(fetcher.seen, string(key))
+						if _, ok := fetcher.seen[string(key)]; ok {
+							delete(fetcher.seen, string(key))
+							tmpAH += 1
+						}
+						//delete(fetcher.seen, string(key))
 					}
 					fetcher.lock.Unlock()
 					p.accountWasteMeter.Mark(int64(len(fetcher.seen)))
 					tmpAW := len(fetcher.seen)
 					rate := float64(tmpAL-tmpAW) / float64(tmpAL)
-					log.Info("Prefetcher statistics", "root", p.root, "accountWaste", len(fetcher.seen), "rate", rate)
+					rateP := float64(tmpAH) / float64(len(fetcher.used))
+					log.Info("Prefetcher statistics", "root", p.root, "accountWaste", len(fetcher.seen), "rate", rate, "notPrefetched", len(fetcher.used)-tmpAH, "ratePrefetched", rateP)
 				} else {
 					tmpS += 1
 					tmpSL += len(fetcher.seen)
@@ -146,8 +152,13 @@ func (p *triePrefetcher) mainLoop() {
 					p.storageSkipMeter.Mark(int64(len(fetcher.tasks)))
 
 					fetcher.lock.Lock()
+					tmpU += len(fetcher.used)
 					for _, key := range fetcher.used {
-						delete(fetcher.seen, string(key))
+						if _, ok := fetcher.seen[string(key)]; ok {
+							delete(fetcher.seen, string(key))
+							tmpH += 1
+						}
+						//						delete(fetcher.seen, string(key))
 					}
 					fetcher.lock.Unlock()
 					p.storageWasteMeter.Mark(int64(len(fetcher.seen)))
@@ -156,7 +167,8 @@ func (p *triePrefetcher) mainLoop() {
 				//				}
 			}
 			rate := float64(tmpSL-tmpSW) / float64(tmpSL)
-			log.Info("Prefetcher statistics", "root", p.root, "StorageLoad", tmpSL, "StorageDup", tmpSD, "StorageSkip", tmpSS, "tmpStorageWaste", tmpSW, "tmpStorage", tmpS, "rate", rate)
+			rateP := float64(tmpH) / float64(tmpU)
+			log.Info("Prefetcher statistics", "root", p.root, "StorageLoad", tmpSL, "StorageDup", tmpSD, "StorageSkip", tmpSS, "tmpStorageWaste", tmpSW, "tmpStorage", tmpS, "rate", rate, "notPrefetched", tmpU-tmpH, "ratePrefetch", rateP)
 			close(p.closeAbortChan)
 			close(p.closeMainDoneChan)
 			p.fetchersMutex.Lock()
