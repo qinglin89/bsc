@@ -118,9 +118,9 @@ type diffLayer struct {
 	storageList map[common.Hash][]common.Hash          // List of storage slots for iterated retrievals, one per account. Any existing lists are sorted if non-nil
 	storageData map[common.Hash]map[common.Hash][]byte // Keyed storage slots for direct retrieval. one per account (nil means deleted)
 
-	verifiedCh       chan struct{} // the difflayer is verified when verifiedCh is nil or closed
-	valid            bool          // mark the difflayer is valid or not.
-	accountCorrected bool          // mark the accountData has been corrected ort not
+	verifiedCh chan struct{} // the difflayer is verified when verifiedCh is nil or closed
+	valid      bool          // mark the difflayer is valid or not.
+	//accountCorrected bool          // mark the accountData has been corrected ort not
 
 	diffed *bloomfilter.Filter // Bloom filter tracking all the diffed items up to the disk layer
 
@@ -289,13 +289,13 @@ func (dl *diffLayer) Verified() bool {
 	}
 }
 
-//func (dl *diffLayer) CorrectAccounts(accounts map[common.Hash][]byte) {
-//	dl.lock.Lock()
-//	defer dl.lock.Unlock()
-//
-//	dl.accountData = accounts
-//	dl.accountCorrected = true
-//}
+func (dl *diffLayer) CorrectAccounts(accounts map[common.Hash][]byte) {
+	dl.lock.Lock()
+	defer dl.lock.Unlock()
+
+	dl.accountData = accounts
+	//	dl.accountCorrected = true
+}
 
 //func (dl *diffLayer) AccountsCorrected() bool {
 //	dl.lock.RLock()

@@ -59,8 +59,8 @@ func (dl *diskLayer) Verified() bool {
 	return true
 }
 
-//func (dl *diskLayer) CorrectAccounts(map[common.Hash][]byte) {
-//}
+func (dl *diskLayer) CorrectAccounts(map[common.Hash][]byte) {
+}
 
 //func (dl *diskLayer) AccountsCorrected() bool {
 //	return true
