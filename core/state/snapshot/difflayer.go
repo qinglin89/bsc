@@ -289,20 +289,20 @@ func (dl *diffLayer) Verified() bool {
 	}
 }
 
-func (dl *diffLayer) CorrectAccounts(accounts map[common.Hash][]byte) {
-	dl.lock.Lock()
-	defer dl.lock.Unlock()
+//func (dl *diffLayer) CorrectAccounts(accounts map[common.Hash][]byte) {
+//	dl.lock.Lock()
+//	defer dl.lock.Unlock()
+//
+//	dl.accountData = accounts
+//	dl.accountCorrected = true
+//}
 
-	dl.accountData = accounts
-	dl.accountCorrected = true
-}
-
-func (dl *diffLayer) AccountsCorrected() bool {
-	dl.lock.RLock()
-	defer dl.lock.RUnlock()
-
-	return dl.accountCorrected
-}
+//func (dl *diffLayer) AccountsCorrected() bool {
+//	dl.lock.RLock()
+//	defer dl.lock.RUnlock()
+//
+//	return dl.accountCorrected
+//}
 
 // Parent returns the subsequent layer of a diff layer.
 func (dl *diffLayer) Parent() snapshot {
