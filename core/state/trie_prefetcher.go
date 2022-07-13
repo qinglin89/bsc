@@ -152,7 +152,7 @@ func (p *triePrefetcher) mainLoop() {
 				}
 				//				}
 			}
-			log.Info("Prefetcher statistics", "root", p.root, "StorageLoad", tmpSL, "StorageDup", tmpSD, "StorageSkip", tmpSS, "tmpStorageWaste", tmpSW, "tmpStorage", tmpS, "storageCount", tmpS)
+			log.Info("Prefetcher statistics", "root", p.root, "StorageLoad", tmpSL, "StorageDup", tmpSD, "StorageSkip", tmpSS, "tmpStorageWaste", tmpSW, "tmpStorage", tmpS)
 			close(p.closeAbortChan)
 			close(p.closeMainDoneChan)
 			p.fetchersMutex.Lock()
@@ -291,9 +291,9 @@ func (p *triePrefetcher) trie(root common.Hash) Trie {
 // used marks a batch of state items used to allow creating statistics as to
 // how useful or wasteful the prefetcher is.
 func (p *triePrefetcher) used(root common.Hash, used [][]byte) {
-	if !metrics.EnabledExpensive {
-		return
-	}
+	//	if !metrics.EnabledExpensive {
+	//		return
+	//	}
 	// If the prefetcher is an inactive one, bail out
 	if p.fetches != nil {
 		return
