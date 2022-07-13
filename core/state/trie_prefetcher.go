@@ -116,6 +116,7 @@ func (p *triePrefetcher) mainLoop() {
 
 		case <-p.closeMainChan:
 			log.Info("Prefetcher statistics", "root", p.root)
+			tmpSL, tmpSD, tmpSS, tmpSW, tmpS := 0, 0, 0, 0, 0
 			for _, fetcher := range p.fetchers {
 				p.abortChan <- fetcher // safe to do multiple times
 				<-fetcher.term
@@ -135,6 +136,10 @@ func (p *triePrefetcher) mainLoop() {
 
 				} else {
 					log.Info("Prefetcher statistics", "root", p.root, "StorageLoad", len(fetcher.seen), "StorageDup", fetcher.dups, "StorageSkip", len(fetcher.tasks), "storageRoot", fetcher.root)
+					tmpS += 1
+					tmpSL += len(fetcher.seen)
+					tmpSD += fetcher.dups
+					tmpSS += len(fetcher.tasks)
 					p.storageLoadMeter.Mark(int64(len(fetcher.seen)))
 					p.storageDupMeter.Mark(int64(fetcher.dups))
 					p.storageSkipMeter.Mark(int64(len(fetcher.tasks)))
@@ -145,12 +150,12 @@ func (p *triePrefetcher) mainLoop() {
 					}
 					fetcher.lock.Unlock()
 					p.storageWasteMeter.Mark(int64(len(fetcher.seen)))
+					tmpSW += len(fetcher.seen)
 					log.Info("Prefetcher statistics", "root", p.root, "storageWaste", len(fetcher.seen), "storageRoot", fetcher.root)
 				}
 				//}
 			}
-			log.Info("Prefetcher statistics end", "root", p.root)
-
+			log.Info("Prefetcher statistics", "root", p.root, "StorageLoad", tmpSL, "StorageDup", tmpSD, "StorageSkip", tmpSS, "tmpStorageWaste", tmpSW, "tmpStorage", tmpS, "storageCount", tmpS)
 			close(p.closeAbortChan)
 			close(p.closeMainDoneChan)
 			p.fetchersMutex.Lock()
