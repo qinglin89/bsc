@@ -1029,11 +1029,11 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 		for _, obj := range s.stateObjects {
 			if !obj.deleted && obj.rootStale {
 				if account, exist := accounts[crypto.Keccak256Hash(obj.address[:])]; exist {
-					obj.data.Root = common.BytesToHash(account.Root)
-					obj.rootStale = false
 					if bytes.Compare(obj.data.Root[:], account.Root) != 0 {
 						tmpCountO++
 					}
+					obj.data.Root = common.BytesToHash(account.Root)
+					obj.rootStale = false
 					tmpCountOT++
 				} else {
 					//for previous snapshot update(more than one layer)
