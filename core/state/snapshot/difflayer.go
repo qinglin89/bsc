@@ -125,6 +125,8 @@ type diffLayer struct {
 	diffed *bloomfilter.Filter // Bloom filter tracking all the diffed items up to the disk layer
 
 	lock sync.RWMutex
+
+	accountsCorrected bool
 }
 
 // destructBloomHasher is a wrapper around a common.Hash to satisfy the interface
@@ -297,6 +299,13 @@ func (dl *diffLayer) CorrectAccounts(accounts map[common.Hash][]byte) {
 	defer dl.lock.Unlock()
 
 	dl.accountData = accounts
+	dl.accountsCorrected = true
+}
+
+func (dl *diffLayer) AccountsCorrected() bool {
+	dl.lock.RLock()
+	defer dl.lock.RUnlock()
+	return dl.accountsCorrected
 }
 
 // Parent returns the subsequent layer of a diff layer.

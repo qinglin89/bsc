@@ -364,6 +364,14 @@ func (s *StateObject) finalise(prefetch bool) {
 			slotsToPrefetch = append(slotsToPrefetch, common.CopyBytes(key[:])) // Copy needed for closure
 		}
 	}
+	if s.db.pipeCommit && s.rootStale && s.db.snap.AccountsCorrected() {
+		if acc, err := s.db.snap.Account(crypto.HashData(s.db.hasher, s.address.Bytes())); err == nil {
+			if acc != nil && len(acc.Root) != 0 {
+				s.data.Root = common.BytesToHash(acc.Root)
+				s.rootStale = true
+			}
+		}
+	}
 
 	if s.db.prefetcher != nil && prefetch && len(slotsToPrefetch) > 0 && s.data.Root != emptyRoot {
 		s.db.prefetcher.prefetch(s.data.Root, slotsToPrefetch, s.addrHash)
