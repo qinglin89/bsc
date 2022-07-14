@@ -923,6 +923,16 @@ func (s *StateDB) WaitPipeVerification() error {
 	}
 	return nil
 }
+func (s *StateDB) WaitPipeVerificationOnHash(root common.Hash) error {
+	// Need to wait for the parent trie to commit
+	snapshot := s.snaps.Snapshot(root)
+	if snapshot != nil {
+		if valid := snapshot.WaitAndGetVerifyRes(); !valid {
+			return fmt.Errorf("verification on parent snap failed")
+		}
+	}
+	return nil
+}
 
 // Finalise finalises the state by removing the s destructed objects and clears
 // the journal as well as the refunds. Finalise, however, will not push any updates
@@ -1005,8 +1015,16 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 			if !obj.deleted && obj.rootStale {
 				if account, exist := accounts[crypto.Keccak256Hash(obj.address[:])]; exist {
 					obj.data.Root = common.BytesToHash(account.Root)
-					obj.rootStale = false
+				} else if data, err := snapshot.Account(crypto.Keccak256Hash(obj.address[:])); err == nil {
+					if data != nil {
+						obj.data.Root = common.BytesToHash(data.Root)
+					} else {
+						obj.data.Root = emptyRoot
+					}
+				} else {
+					panic("CORRECTACCOUNTSROOT ERR SNAPSHOT.ACCOUNTS")
 				}
+				obj.rootStale = false
 			}
 		}
 	}
@@ -1353,6 +1371,8 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 			if s.pipeCommit {
 				<-snapUpdated
 				// Due to state verification pipeline, the accounts roots are not updated, leading to the data in the difflayer is not correct, capture the correct data here
+				s.WaitPipeVerificationOnHash(s.originalRoot)
+				s.CorrectAccountsRoot(s.originalRoot)
 				s.AccountsIntermediateRoot()
 				if parent := s.snap.Root(); parent != s.expectedRoot {
 					accountData := make(map[common.Hash][]byte)
