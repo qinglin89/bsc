@@ -1003,7 +1003,8 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 	}
 	if accounts, err := snapshot.Accounts(); err == nil && accounts != nil {
 		for _, obj := range s.stateObjects {
-			if !obj.deleted && obj.rootStale {
+			//			if !obj.deleted && obj.rootStale {
+			if !obj.deleted {
 				if account, exist := accounts[crypto.Keccak256Hash(obj.address[:])]; exist {
 					obj.data.Root = common.BytesToHash(account.Root)
 					obj.rootStale = false
