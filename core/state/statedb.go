@@ -216,7 +216,7 @@ func (s *StateDB) StartPrefetcher(namespace string) {
 	if s.snap != nil {
 		s.prefetcher = newTriePrefetcher(s.db, s.originalRoot, namespace)
 	}
-	log.Info("StartPrefetcher", "s.snap==nil", s.snap==nil, "len(layers)", s.snaps.Layers())
+	log.Info("StartPrefetcher", "s.snap==nil", s.snap == nil, "len(layers)", s.snaps.Layers())
 }
 
 // StopPrefetcher terminates a running prefetcher and reports any leftover stats
@@ -1018,12 +1018,12 @@ func (s *StateDB) PopulateSnapAccountAndStorage() {
 	for addr := range s.stateObjectsPending {
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			if s.snap != nil {
-				root := obj.data.Root
+				//				root := obj.data.Root
 				storageChanged := s.populateSnapStorage(obj)
 				if storageChanged {
 					obj.rootStale = true
 				}
-				s.snapAccounts[obj.address] = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, root, obj.data.CodeHash)
+				s.snapAccounts[obj.address] = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.CodeHash)
 			}
 		}
 	}
