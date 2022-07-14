@@ -370,6 +370,8 @@ func (s *StateObject) finalise(prefetch bool) {
 				s.data.Root = common.BytesToHash(acc.Root)
 				s.rootStale = true
 			}
+		} else {
+			s.data.Root = emptyRoot
 		}
 	}
 
