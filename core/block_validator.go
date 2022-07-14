@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -160,6 +161,7 @@ func (v *BlockValidator) ValidateState(block *types.Block, statedb *state.StateD
 	if statedb.IsPipeCommit() {
 		validateFuns = append(validateFuns, func() error {
 			if err := statedb.WaitPipeVerification(); err != nil {
+				log.Info("FAIL ON STATEVALIDATOR AVOID REWINDBADBLOCK")
 				return err
 			}
 			statedb.CorrectAccountsRoot(common.Hash{})
