@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	bloomfilter "github.com/holiman/bloomfilter/v2"
 )
@@ -324,7 +323,6 @@ func (dl *diffLayer) Account(hash common.Hash) (*Account, error) {
 		return nil, err
 	}
 	if len(data) == 0 { // can be both nil and []byte{}
-		log.Info("Retreive nil data from snapsTree")
 		return nil, nil
 	}
 	account := new(Account)
