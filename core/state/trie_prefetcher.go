@@ -141,8 +141,10 @@ func (p *triePrefetcher) mainLoop() {
 					p.accountSkipMeter.Mark(int64(len(fetcher.tasks)))
 					fetcher.lock.Lock()
 					for _, key := range fetcher.used {
-						delete(fetcher.seen, string(key))
-						tmpAH += 1
+						if _, ok := fetcher.seen[string(key)]; ok {
+							delete(fetcher.seen, string(key))
+							tmpAH += 1
+						}
 					}
 					fetcher.lock.Unlock()
 					p.accountWasteMeter.Mark(int64(len(fetcher.seen)))
@@ -157,8 +159,10 @@ func (p *triePrefetcher) mainLoop() {
 					p.accountStaleSkipMeter.Mark(int64(len(fetcher.tasks)))
 					fetcher.lock.Lock()
 					for _, key := range fetcher.used {
-						delete(fetcher.seen, string(key))
-						tmpAH++
+						if _, ok := fetcher.seen[string(key)]; ok {
+							delete(fetcher.seen, string(key))
+							tmpAH++
+						}
 					}
 					fetcher.lock.Unlock()
 					p.accountStaleWasteMeter.Mark(int64(len(fetcher.seen)))

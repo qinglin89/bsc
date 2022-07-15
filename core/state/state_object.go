@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state/snapshot"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -447,10 +448,11 @@ func (s *StateObject) updateTrie(db Database) Trie {
 					} else {
 						s.setError(tr.TryUpdate(key[:], value))
 					}
-					usedStorage = append(usedStorage, common.CopyBytes(key[:]))
 					if _, ok := tmpStorage[s.addrHash][common.BytesToHash(common.CopyBytes(key[:]))]; !ok {
+						log.Info("storage: USED changed")
 						usedStorageChanged = append(usedStorageChanged, common.CopyBytes(key[:]))
 					} else {
+						log.Info("storage: USED newRoot")
 						usedStorage = append(usedStorage, common.CopyBytes(key[:]))
 					}
 				}
@@ -463,6 +465,7 @@ func (s *StateObject) updateTrie(db Database) Trie {
 					s.setError(tr.TryUpdate(key[:], value))
 				}
 				//usedStorage = append(usedStorage, common.CopyBytes(key[:]))
+				log.Info("storage: USED unchanged")
 				usedStorageChanged = append(usedStorageChanged, common.CopyBytes(key[:]))
 			}
 		}
