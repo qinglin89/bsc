@@ -438,6 +438,7 @@ func (s *StateObject) updateTrie(db Database) Trie {
 	}
 	var wg sync.WaitGroup
 	wg.Add(1)
+	tmp1, tmp2, tmp3 := 0, 0, 0
 	go func() {
 		defer wg.Done()
 		if s.rootCorrected && s.db.snap != nil {
@@ -449,10 +450,12 @@ func (s *StateObject) updateTrie(db Database) Trie {
 						s.setError(tr.TryUpdate(key[:], value))
 					}
 					if _, ok := tmpStorage[s.addrHash][common.BytesToHash(common.CopyBytes(key[:]))]; !ok {
-						log.Info("storage: USED changed")
+						//		log.Info("storage: USED not changed")
+						tmp1++
 						usedStorageChanged = append(usedStorageChanged, common.CopyBytes(key[:]))
 					} else {
-						log.Info("storage: USED newRoot")
+						//		log.Info("storage: USED newRoot")
+						tmp2++
 						usedStorage = append(usedStorage, common.CopyBytes(key[:]))
 					}
 				}
@@ -465,10 +468,12 @@ func (s *StateObject) updateTrie(db Database) Trie {
 					s.setError(tr.TryUpdate(key[:], value))
 				}
 				//usedStorage = append(usedStorage, common.CopyBytes(key[:]))
-				log.Info("storage: USED unchanged")
+				//log.Info("storage: USED unchanged")
+				tmp3++
 				usedStorageChanged = append(usedStorageChanged, common.CopyBytes(key[:]))
 			}
 		}
+		log.Info("storage:: ", "keyNotChanged", tmp1, "newRoot", tmp2, "unchanged", tmp3)
 	}()
 	if s.db.snap != nil {
 		// If state snapshotting is active, cache the data til commit
@@ -494,6 +499,8 @@ func (s *StateObject) updateTrie(db Database) Trie {
 		s.db.prefetcher.used(s.data.Root, usedStorage)
 		if s.rootPrefetch != (common.Hash{}) {
 			s.db.prefetcher.used(s.rootPrefetch, usedStorageChanged)
+		} else {
+			s.db.prefetcher.used(s.data.Root, usedStorageChanged)
 		}
 	}
 	if len(s.pendingStorage) > 0 {
