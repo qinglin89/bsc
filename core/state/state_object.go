@@ -450,6 +450,8 @@ func (s *StateObject) updateTrie(db Database) Trie {
 					usedStorage = append(usedStorage, common.CopyBytes(key[:]))
 					if _, ok := tmpStorage[s.addrHash][common.BytesToHash(common.CopyBytes(key[:]))]; !ok {
 						usedStorageChanged = append(usedStorageChanged, common.CopyBytes(key[:]))
+					} else {
+						usedStorage = append(usedStorage, common.CopyBytes(key[:]))
 					}
 				}
 			}
@@ -460,7 +462,7 @@ func (s *StateObject) updateTrie(db Database) Trie {
 				} else {
 					s.setError(tr.TryUpdate(key[:], value))
 				}
-				usedStorage = append(usedStorage, common.CopyBytes(key[:]))
+				//usedStorage = append(usedStorage, common.CopyBytes(key[:]))
 				usedStorageChanged = append(usedStorageChanged, common.CopyBytes(key[:]))
 			}
 		}

@@ -1171,11 +1171,13 @@ func (s *StateDB) StateIntermediateRoot() common.Hash {
 				s.updateStateObject(obj)
 			}
 			//		tmp := common.CopyBytes(addr[:])
-			if obj.rootCorrected {
+			if !obj.rootCorrected {
 				//	tmp = append(tmp, 1)
 				usedAddrsChanged = append(usedAddrsChanged, common.CopyBytes(addr[:]))
+			} else {
+				usedAddrs = append(usedAddrs, common.CopyBytes(addr[:])) // Copy needed for closure
 			}
-			usedAddrs = append(usedAddrs, common.CopyBytes(addr[:])) // Copy needed for closure
+			//			usedAddrs = append(usedAddrs, common.CopyBytes(addr[:])) // Copy needed for closure
 		}
 		if prefetcher != nil {
 			prefetcher.used(s.originalRoot, usedAddrs)
