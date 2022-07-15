@@ -47,10 +47,11 @@ type prefetchMsg struct {
 //
 // Note, the prefetcher's API is not thread safe.
 type triePrefetcher struct {
-	db       Database                    // Database to fetch trie nodes through
-	root     common.Hash                 // Root hash of theaccount trie for metrics
-	fetches  map[common.Hash]Trie        // Partially or fully fetcher tries
-	fetchers map[common.Hash]*subfetcher // Subfetchers for each trie
+	db           Database    // Database to fetch trie nodes through
+	root         common.Hash // Root hash of theaccount trie for metrics
+	rootPrefetch common.Hash
+	fetches      map[common.Hash]Trie        // Partially or fully fetcher tries
+	fetchers     map[common.Hash]*subfetcher // Subfetchers for each trie
 
 	closed            int32
 	closeMainChan     chan struct{} // it is to inform the mainLoop
@@ -70,14 +71,20 @@ type triePrefetcher struct {
 	storageDupMeter   metrics.Meter
 	storageSkipMeter  metrics.Meter
 	storageWasteMeter metrics.Meter
+
+	accountStaleLoadMeter  metrics.Meter
+	accountStaleDupMeter   metrics.Meter
+	accountStaleSkipMeter  metrics.Meter
+	accountStaleWasteMeter metrics.Meter
 }
 
 // newTriePrefetcher
-func newTriePrefetcher(db Database, root common.Hash, namespace string) *triePrefetcher {
+func newTriePrefetcher(db Database, root, rootPrefetch common.Hash, namespace string) *triePrefetcher {
 	prefix := triePrefetchMetricsPrefix + namespace
 	p := &triePrefetcher{
 		db:             db,
 		root:           root,
+		rootPrefetch:   rootPrefetch,
 		fetchers:       make(map[common.Hash]*subfetcher), // Active prefetchers use the fetchers map
 		abortChan:      make(chan *subfetcher, abortChanSize),
 		closeAbortChan: make(chan struct{}),
@@ -95,6 +102,11 @@ func newTriePrefetcher(db Database, root common.Hash, namespace string) *triePre
 		storageDupMeter:   metrics.GetOrRegisterMeter(prefix+"/storage/dup", nil),
 		storageSkipMeter:  metrics.GetOrRegisterMeter(prefix+"/storage/skip", nil),
 		storageWasteMeter: metrics.GetOrRegisterMeter(prefix+"/storage/waste", nil),
+
+		accountStaleLoadMeter:  metrics.GetOrRegisterMeter(prefix+"/accountst/load", nil),
+		accountStaleDupMeter:   metrics.GetOrRegisterMeter(prefix+"/accountst/dup", nil),
+		accountStaleSkipMeter:  metrics.GetOrRegisterMeter(prefix+"/accountst/skip", nil),
+		accountStaleWasteMeter: metrics.GetOrRegisterMeter(prefix+"/accountstwaste", nil),
 	}
 	go p.abortLoop()
 	go p.mainLoop()
@@ -116,34 +128,44 @@ func (p *triePrefetcher) mainLoop() {
 
 		case <-p.closeMainChan:
 			log.Info("Prefetcher statistics", "root", p.root)
-			tmpSL, tmpSD, tmpSS, tmpSW, tmpS, tmpH, tmpU := 0, 0, 0, 0, 0, 0, 0
+			tmpSL, tmpSD, tmpSS, tmpSW, tmpH, tmpU := 0, 0, 0, 0, 0, 0
 			for _, fetcher := range p.fetchers {
 				p.abortChan <- fetcher // safe to do multiple times
 				<-fetcher.term
-				//				if metrics.EnabledExpensive {
-				if fetcher.root == p.root {
+				switch fetcher.root {
+				case p.root:
 					tmpAL := len(fetcher.seen)
 					tmpAH := 0
-					log.Info("Prefetcher statistics", "root", p.root, "accountLoad", len(fetcher.seen), "accountDup", fetcher.dups, "accountSkip", len(fetcher.tasks))
 					p.accountLoadMeter.Mark(int64(len(fetcher.seen)))
 					p.accountDupMeter.Mark(int64(fetcher.dups))
 					p.accountSkipMeter.Mark(int64(len(fetcher.tasks)))
 					fetcher.lock.Lock()
 					for _, key := range fetcher.used {
-						if _, ok := fetcher.seen[string(key)]; ok {
-							delete(fetcher.seen, string(key))
-							tmpAH += 1
-						}
-						//delete(fetcher.seen, string(key))
+						delete(fetcher.seen, string(key))
+						tmpAH += 1
 					}
 					fetcher.lock.Unlock()
 					p.accountWasteMeter.Mark(int64(len(fetcher.seen)))
-					tmpAW := len(fetcher.seen)
-					rate := float64(tmpAL-tmpAW) / float64(tmpAL)
-					rateP := float64(tmpAH) / float64(len(fetcher.used))
-					log.Info("Prefetcher statistics", "root", p.root, "accountWaste", len(fetcher.seen), "rate", rate, "notPrefetched", len(fetcher.used)-tmpAH, "ratePrefetched", rateP)
-				} else {
-					tmpS += 1
+					rate := float64(tmpAH) / float64(tmpAL)
+					log.Info("Prefetcher statistics", "root", p.root, "totalPrefetched", tmpAL, "rate", rate)
+				case p.rootPrefetch:
+					tmpAL := len(fetcher.seen)
+					tmpAH := 0
+
+					p.accountStaleLoadMeter.Mark(int64(len(fetcher.seen)))
+					p.accountStaleDupMeter.Mark(int64(fetcher.dups))
+					p.accountStaleSkipMeter.Mark(int64(len(fetcher.tasks)))
+					fetcher.lock.Lock()
+					for _, key := range fetcher.used {
+						delete(fetcher.seen, string(key))
+						tmpAH++
+					}
+					fetcher.lock.Unlock()
+					p.accountStaleWasteMeter.Mark(int64(len(fetcher.seen)))
+					rate := float64(tmpAH) / float64(tmpAL)
+					log.Info("Prefetcher statistics", "rootPrefetch", p.root, "totalPrefetched", tmpAL, "rate", rate)
+
+				default:
 					tmpSL += len(fetcher.seen)
 					tmpSD += fetcher.dups
 					tmpSS += len(fetcher.tasks)
@@ -152,23 +174,21 @@ func (p *triePrefetcher) mainLoop() {
 					p.storageSkipMeter.Mark(int64(len(fetcher.tasks)))
 
 					fetcher.lock.Lock()
-					tmpU += len(fetcher.used)
 					for _, key := range fetcher.used {
+						tmpU++
 						if _, ok := fetcher.seen[string(key)]; ok {
+							tmpH++
 							delete(fetcher.seen, string(key))
-							tmpH += 1
 						}
-						//						delete(fetcher.seen, string(key))
 					}
 					fetcher.lock.Unlock()
 					p.storageWasteMeter.Mark(int64(len(fetcher.seen)))
 					tmpSW += len(fetcher.seen)
 				}
-				//				}
 			}
 			rate := float64(tmpSL-tmpSW) / float64(tmpSL)
 			rateP := float64(tmpH) / float64(tmpU)
-			log.Info("Prefetcher statistics", "root", p.root, "StorageLoad", tmpSL, "StorageDup", tmpSD, "StorageSkip", tmpSS, "tmpStorageWaste", tmpSW, "tmpStorage", tmpS, "rate", rate, "notPrefetched", tmpU-tmpH, "ratePrefetch", rateP)
+			log.Info("Prefetcher statistics", "root", p.root, "StorageLoad", tmpSL, "StorageDup", tmpSD, "StorageSkip", tmpSS, "tmpStorageWaste", tmpSW, "tmpUsed", tmpU, "rate", rate, "notPrefetched", tmpU-tmpH, "ratePrefetch", rateP)
 			close(p.closeAbortChan)
 			close(p.closeMainDoneChan)
 			p.fetchersMutex.Lock()
