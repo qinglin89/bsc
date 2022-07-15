@@ -116,6 +116,9 @@ type Snapshot interface {
 	// AccountsCorrected checks whether the account data has been corrected during pipecommit
 	AccountsCorrected() bool
 
+	//Storages just used for metrics test
+	Storages() (map[common.Hash]map[common.Hash][]byte, error)
+
 	// Account directly retrieves the account associated with a particular hash in
 	// the snapshot slim data format.
 	Account(hash common.Hash) (*Account, error)

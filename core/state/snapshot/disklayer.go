@@ -85,6 +85,9 @@ func (dl *diskLayer) Stale() bool {
 func (dl *diskLayer) Accounts() (map[common.Hash]*Account, error) {
 	return nil, nil
 }
+func (dl *diskLayer) Storages() (map[common.Hash]map[common.Hash][]byte, error) {
+	return nil, nil
+}
 
 // Account directly retrieves the account associated with a particular hash in
 // the snapshot slim data format.

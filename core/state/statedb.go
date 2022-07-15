@@ -224,9 +224,8 @@ func (s *StateDB) StartPrefetcher(namespace string) {
 		} else {
 			s.prefetcher = newTriePrefetcher(s.db, s.originalRoot, common.Hash{}, namespace)
 		}
-		//		s.prefetcher = newTriePrefetcher(s.db, s.originalRoot, namespace)
 	}
-	log.Info("StartPrefetcher", "s.snap==nil", s.snap==nil, "len(layers)", s.snaps.Layers())
+	log.Info("StartPrefetcher", "s.snap==nil", s.snap == nil, "len(layers)", s.snaps.Layers())
 }
 
 // StopPrefetcher terminates a running prefetcher and reports any leftover stats
@@ -501,7 +500,7 @@ func (s *StateDB) HasSuicided(addr common.Address) bool {
 }
 
 /*
- * SETTERS
+* SETTERS
  */
 
 // AddBalance adds amount to the account associated with addr.
@@ -1162,17 +1161,27 @@ func (s *StateDB) StateIntermediateRoot() common.Hash {
 	}
 
 	usedAddrs := make([][]byte, 0, len(s.stateObjectsPending))
+	usedAddrsChanged := make([][]byte, 0, len(s.stateObjectsPending))
 	if !s.noTrie {
 		for addr := range s.stateObjectsPending {
-			if obj := s.stateObjects[addr]; obj.deleted {
+			obj := s.stateObjects[addr]
+			if obj.deleted {
 				s.deleteStateObject(obj)
 			} else {
 				s.updateStateObject(obj)
+			}
+			//		tmp := common.CopyBytes(addr[:])
+			if obj.rootCorrected {
+				//	tmp = append(tmp, 1)
+				usedAddrsChanged = append(usedAddrsChanged, common.CopyBytes(addr[:]))
 			}
 			usedAddrs = append(usedAddrs, common.CopyBytes(addr[:])) // Copy needed for closure
 		}
 		if prefetcher != nil {
 			prefetcher.used(s.originalRoot, usedAddrs)
+			if prefetcher.rootPrefetch != (common.Hash{}) {
+				prefetcher.used(prefetcher.rootPrefetch, usedAddrsChanged)
+			}
 		}
 	}
 

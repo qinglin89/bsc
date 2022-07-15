@@ -163,7 +163,7 @@ func (p *triePrefetcher) mainLoop() {
 					fetcher.lock.Unlock()
 					p.accountStaleWasteMeter.Mark(int64(len(fetcher.seen)))
 					rate := float64(tmpAH) / float64(tmpAL)
-					log.Info("Prefetcher statistics", "rootPrefetch", p.root, "totalPrefetched", tmpAL, "rate", rate)
+					log.Info("Prefetcher statistics", "rootStalePrefetch", p.root, "totalPrefetched", tmpAL, "rate", rate)
 
 				default:
 					tmpSL += len(fetcher.seen)

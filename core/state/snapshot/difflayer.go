@@ -350,6 +350,10 @@ func (dl *diffLayer) Accounts() (map[common.Hash]*Account, error) {
 	return accounts, nil
 }
 
+func (dl *diffLayer) Storages() (map[common.Hash]map[common.Hash][]byte, error) {
+	return dl.storageData, nil
+}
+
 // AccountRLP directly retrieves the account RLP associated with a particular
 // hash in the snapshot slim data format.
 //

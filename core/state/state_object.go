@@ -415,6 +415,7 @@ func (s *StateObject) updateTrie(db Database) Trie {
 	tr := s.getTrie(db)
 
 	usedStorage := make([][]byte, 0, len(s.pendingStorage))
+	usedStorageChanged := make([][]byte, 0, len(s.pendingStorage))
 	dirtyStorage := make(map[common.Hash][]byte)
 	for key, value := range s.pendingStorage {
 		// Skip noop changes, persist actual changes
@@ -438,13 +439,30 @@ func (s *StateObject) updateTrie(db Database) Trie {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for key, value := range dirtyStorage {
-			if len(value) == 0 {
-				s.setError(tr.TryDelete(key[:]))
-			} else {
-				s.setError(tr.TryUpdate(key[:], value))
+		if s.rootCorrected && s.db.snap != nil {
+			if tmpStorage, err := s.db.snap.Storages(); err == nil && tmpStorage != nil {
+				for key, value := range dirtyStorage {
+					if len(value) == 0 {
+						s.setError(tr.TryDelete(key[:]))
+					} else {
+						s.setError(tr.TryUpdate(key[:], value))
+					}
+					usedStorage = append(usedStorage, common.CopyBytes(key[:]))
+					if _, ok := tmpStorage[s.addrHash][common.BytesToHash(common.CopyBytes(key[:]))]; !ok {
+						usedStorageChanged = append(usedStorageChanged, common.CopyBytes(key[:]))
+					}
+				}
 			}
-			usedStorage = append(usedStorage, common.CopyBytes(key[:]))
+		} else {
+			for key, value := range dirtyStorage {
+				if len(value) == 0 {
+					s.setError(tr.TryDelete(key[:]))
+				} else {
+					s.setError(tr.TryUpdate(key[:], value))
+				}
+				usedStorage = append(usedStorage, common.CopyBytes(key[:]))
+				usedStorageChanged = append(usedStorageChanged, common.CopyBytes(key[:]))
+			}
 		}
 	}()
 	if s.db.snap != nil {
@@ -469,6 +487,9 @@ func (s *StateObject) updateTrie(db Database) Trie {
 
 	if s.db.prefetcher != nil {
 		s.db.prefetcher.used(s.data.Root, usedStorage)
+		if s.rootPrefetch != (common.Hash{}) {
+			s.db.prefetcher.used(s.rootPrefetch, usedStorageChanged)
+		}
 	}
 	if len(s.pendingStorage) > 0 {
 		s.pendingStorage = make(Storage)
