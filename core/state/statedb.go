@@ -1011,6 +1011,17 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 				if account, exist := accounts[crypto.Keccak256Hash(obj.address[:])]; exist {
 					obj.data.Root = common.BytesToHash(account.Root)
 					obj.rootCorrected = true
+				} else if obj.data.Root == dummyRoot {
+					log.Info("MISSED DUMMYROOT WOULD CAUSE ERROR WHEN DO TRIEUPDATE******************************************")
+					if tmpAcc, err := snapshot.Account(crypto.Keccak256Hash(obj.address[:])); err != nil {
+						if tmpAcc == nil {
+							obj.data.Root = emptyRoot
+						} else {
+							obj.data.Root = common.BytesToHash(tmpAcc.Root)
+						}
+					} else {
+						log.Info("MISSED DUMMYFROOT UNCORRECT******************************************")
+					}
 				}
 			}
 		}
