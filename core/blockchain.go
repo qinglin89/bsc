@@ -1925,11 +1925,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		blockExecutionTimer.Update(time.Since(substart))
 
 		// Validate the state using the default validator
-		substart = time.Now()
+		//		substart = time.Now()
 		if !statedb.IsLightProcessed() {
 			substart = time.Now()
 			err := bc.validator.ValidateState(block, statedb, receipts, usedGas)
-			perf.RecordMPMetrics(perf.MpImportingVerifyState, substart)
+			//			perf.RecordMPMetrics(perf.MpImportingVerifyState, substart)
 			if err != nil {
 				//			if err := bc.validator.ValidateState(block, statedb, receipts, usedGas); err != nil {
 				log.Error("validate state failed", "error", err)

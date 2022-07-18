@@ -1,9 +1,10 @@
 package perf
 
 import (
+	"time"
+
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
-	"time"
 )
 
 type MpMetricsName string
@@ -100,9 +101,9 @@ var (
 )
 
 func RecordMPMetrics(metricsName MpMetricsName, start time.Time) {
-	if !mpMetricsEnabled {
-		return
-	}
+	//	if !mpMetricsEnabled {
+	//		return
+	//	}
 
 	switch metricsName {
 	case MpMiningTotal:
@@ -170,9 +171,9 @@ func RecordMPMetrics(metricsName MpMetricsName, start time.Time) {
 }
 
 func RecordMPLogs(logger log.Logger, msg string, ctx ...interface{}) {
-	if !mpMetricsEnabled {
-		return
-	}
+	//	if !mpMetricsEnabled {
+	//		return
+	//	}
 
 	if logger != nil {
 		logger.Info(msg, ctx...)
