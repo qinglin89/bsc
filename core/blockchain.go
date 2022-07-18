@@ -45,6 +45,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/perf"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -1573,6 +1574,7 @@ func (bc *BlockChain) WriteBlockAndSetHead(block *types.Block, receipts []*types
 	if !bc.chainmu.TryLock() {
 		return NonStatTy, errChainStopped
 	}
+
 	defer bc.chainmu.Unlock()
 
 	return bc.writeBlockAndSetHead(block, receipts, logs, state, emitHeadEvent)
@@ -1677,7 +1679,10 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		return 0, errChainStopped
 	}
 	defer bc.chainmu.Unlock()
-	return bc.insertChain(chain, true, true)
+	start := time.Now()
+	n, err := bc.insertChain(chain, true, true)
+	perf.RecordMPMetrics(perf.MpImportingTotal, start)
+	return n, err
 }
 
 // insertChain is the internal implementation of InsertChain, which assumes that
@@ -1708,6 +1713,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
+	startVerifyHeader := time.Now()
 	// Start the parallel header verifier
 	headers := make([]*types.Header, len(chain))
 	seals := make([]bool, len(chain))
@@ -1717,6 +1723,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		seals[i] = verifySeals
 	}
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
+	perf.RecordMPMetrics(perf.MpImportingVerifyHeader, startVerifyHeader)
 	defer close(abort)
 
 	// Peek the error for the first block to decide the directing import logic
@@ -1901,6 +1908,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		statedb.SetExpectedStateRoot(block.Root())
 		statedb, receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
 		close(interruptCh) // state prefetch can be stopped
+		perf.RecordMPMetrics(perf.MpImportingProcess, substart)
 		activeState = statedb
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -1919,7 +1927,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		// Validate the state using the default validator
 		substart = time.Now()
 		if !statedb.IsLightProcessed() {
-			if err := bc.validator.ValidateState(block, statedb, receipts, usedGas); err != nil {
+			substart = time.Now()
+			err := bc.validator.ValidateState(block, statedb, receipts, usedGas)
+			perf.RecordMPMetrics(perf.MpImportingVerifyState, substart)
+			if err != nil {
+				//			if err := bc.validator.ValidateState(block, statedb, receipts, usedGas); err != nil {
 				log.Error("validate state failed", "error", err)
 				bc.reportBlock(block, receipts, err)
 				return it.index, err
@@ -1938,12 +1950,14 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		// Write the block to the chain and get the status.
 		substart = time.Now()
 		var status WriteStatus
+		substart = time.Now()
 		if !setHead {
 			// Don't set the head, only insert the block
 			err = bc.writeBlockWithState(block, receipts, logs, statedb)
 		} else {
 			status, err = bc.writeBlockAndSetHead(block, receipts, logs, statedb, false)
 		}
+		perf.RecordMPMetrics(perf.MpImportingCommit, substart)
 		if err != nil {
 			return it.index, err
 		}
