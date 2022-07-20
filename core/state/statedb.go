@@ -52,7 +52,7 @@ var (
 
 	// dummyRoot is the dummy account root before corrected in pipecommit sync mode,
 	// the value is 542e5fc2709de84248e9bce43a9c0c8943a608029001360f8ab55bf113b23d28
-	dummyRoot = crypto.Keccak256Hash([]byte("dummy_account_root"))
+	//dummyRoot = crypto.Keccak256Hash([]byte("dummy_account_root"))
 
 	emptyAddr = crypto.Keccak256Hash(common.Address{}.Bytes())
 )
@@ -988,7 +988,8 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 	}
 	if accounts, err := snapshot.Accounts(); err == nil && accounts != nil {
 		for _, obj := range s.stateObjects {
-			if !obj.deleted && !obj.rootCorrected && obj.data.Root == dummyRoot {
+			//			if !obj.deleted && !obj.rootCorrected && obj.data.Root == dummyRoot {
+			if !obj.deleted && !obj.rootCorrected {
 				if account, exist := accounts[crypto.Keccak256Hash(obj.address[:])]; exist && len(account.Root) != 0 {
 					obj.data.Root = common.BytesToHash(account.Root)
 					obj.rootCorrected = true
@@ -1003,12 +1004,15 @@ func (s *StateDB) PopulateSnapAccountAndStorage() {
 	for addr := range s.stateObjectsPending {
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			if s.snap != nil && !obj.deleted {
-				root := obj.data.Root
-				storageChanged := s.populateSnapStorage(obj)
-				if storageChanged {
-					root = dummyRoot
-				}
-				s.snapAccounts[obj.address] = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, root, obj.data.CodeHash)
+				//	root := obj.data.Root
+				//	storageChanged := s.populateSnapStorage(obj)
+				s.populateSnapStorage(obj)
+
+				//if storageChanged {
+				//	root = dummyRoot
+				//}
+				//s.snapAccounts[obj.address] = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, root, obj.data.CodeHash)
+				s.snapAccounts[obj.address] = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.CodeHash)
 			}
 		}
 	}
@@ -1330,7 +1334,7 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 		snapUpdated = make(chan struct{})
 	}
 
-	commmitTrie := func() error {
+	commitTrie := func() error {
 		commitErr := func() error {
 			if s.pipeCommit {
 				<-snapUpdated
@@ -1503,9 +1507,9 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 		},
 	}
 	if s.pipeCommit {
-		go commmitTrie()
+		go commitTrie()
 	} else {
-		commitFuncs = append(commitFuncs, commmitTrie)
+		commitFuncs = append(commitFuncs, commitTrie)
 	}
 	commitRes := make(chan error, len(commitFuncs))
 	for _, f := range commitFuncs {

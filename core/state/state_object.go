@@ -69,6 +69,7 @@ type StateObject struct {
 	data          Account
 	db            *StateDB
 	rootCorrected bool // To indicate whether the root has been corrected in pipecommit mode
+	//rootStale bool
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -357,16 +358,18 @@ func (s *StateObject) finalise(prefetch bool) {
 	}
 
 	// The account root need to be updated before prefetch, otherwise the account root is empty
-	if s.db.pipeCommit && s.data.Root == dummyRoot && !s.rootCorrected && s.db.snap.AccountsCorrected() {
-		if acc, err := s.db.snap.Account(crypto.HashData(s.db.hasher, s.address.Bytes())); err == nil {
-			if acc != nil && len(acc.Root) != 0 {
-				s.data.Root = common.BytesToHash(acc.Root)
-				s.rootCorrected = true
-			}
-		}
-	}
+	//	if s.db.pipeCommit && s.data.Root == dummyRoot && !s.rootCorrected && s.db.snap.AccountsCorrected() {
+	//	if s.db.pipeCommit && !s.rootCorrected && s.db.snap.Verified() {
+	//
+	//		if acc, err := s.db.snap.Account(crypto.HashData(s.db.hasher, s.address.Bytes())); err == nil {
+	//			if acc != nil && len(acc.Root) != 0 {
+	//				s.data.Root = common.BytesToHash(acc.Root)
+	//				s.rootCorrected = true
+	//			}
+	//		}
+	//	}
 
-	if s.db.prefetcher != nil && prefetch && len(slotsToPrefetch) > 0 && s.data.Root != emptyRoot && s.data.Root != dummyRoot {
+	if s.db.prefetcher != nil && prefetch && len(slotsToPrefetch) > 0 && s.data.Root != emptyRoot {
 		s.db.prefetcher.prefetch(s.data.Root, slotsToPrefetch, s.addrHash)
 	}
 	if len(s.dirtyStorage) > 0 {
