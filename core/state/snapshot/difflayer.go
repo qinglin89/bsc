@@ -346,10 +346,10 @@ func (dl *diffLayer) Accounts3Test() (map[common.Hash]*Account, error) {
 
 	accounts := make(map[common.Hash]*Account, 3*len(dl.accountData))
 
-	p1 := dl.Parent().(*diffLayer)
-	if p1 != nil {
-		p2 := p1.Parent().(*diffLayer)
-		if p2 != nil {
+	p1, ok := dl.Parent().(*diffLayer)
+	if ok && p1 != nil {
+		p2, ok := p1.Parent().(*diffLayer)
+		if ok && p2 != nil {
 			for hash, data := range p2.accountData {
 				account := new(Account)
 				if err := rlp.DecodeBytes(data, account); err != nil {
