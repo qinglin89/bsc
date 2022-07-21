@@ -98,6 +98,8 @@ var (
 
 // Snapshot represents the functionality supported by a snapshot storage layer.
 type Snapshot interface {
+	Accounts3Test() (map[common.Hash]*Account, error)
+
 	// Root returns the root hash for which this snapshot was made.
 	Root() common.Hash
 
