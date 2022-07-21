@@ -1009,7 +1009,8 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 	if snapshot == nil {
 		return
 	}
-	if accounts, err := snapshot.Accounts(); err == nil && accounts != nil {
+	//	if accounts, err := snapshot.Accounts(); err == nil && accounts != nil {
+	if accounts, err := snapshot.Accounts3Test(); err == nil && accounts != nil {
 		for _, obj := range s.stateObjects {
 			if !obj.deleted {
 				if account, exist := accounts[crypto.Keccak256Hash(obj.address[:])]; exist {
@@ -1018,16 +1019,16 @@ func (s *StateDB) CorrectAccountsRoot(blockRoot common.Hash) {
 					} else {
 						obj.data.Root = common.BytesToHash(account.Root)
 					}
-				} else {
-					if account, err := s.snap.Account(crypto.Keccak256Hash(obj.address[:])); err == nil && account != nil {
-						if len(account.Root) == 0 {
-							obj.data.Root = emptyRoot
-						} else {
-							obj.data.Root = common.BytesToHash(account.Root)
-						}
-
-					}
 				}
+				//	else {
+				//		if account, err := s.snap.Account(crypto.Keccak256Hash(obj.address[:])); err == nil && account != nil {
+				//			if len(account.Root) == 0 {
+				//				obj.data.Root = emptyRoot
+				//			} else {
+				//				obj.data.Root = common.BytesToHash(account.Root)
+				//			}
+				//		}
+				//}
 			}
 		}
 	}

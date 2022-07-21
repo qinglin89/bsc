@@ -340,6 +340,62 @@ func (dl *diffLayer) Accounts() (map[common.Hash]*Account, error) {
 
 	return accounts, nil
 }
+func (dl *diffLayer) Accounts3Test() (map[common.Hash]*Account, error) {
+	dl.lock.RLock()
+	defer dl.lock.RUnlock()
+
+	accounts := make(map[common.Hash]*Account, 3*len(dl.accountData))
+
+	p1 := dl.Parent().(*diffLayer)
+	if p1 != nil {
+		p2 := p1.Parent().(*diffLayer)
+		if p2 != nil {
+			for hash, data := range p2.accountData {
+				account := new(Account)
+				if err := rlp.DecodeBytes(data, account); err != nil {
+					return nil, err
+				}
+				accounts[hash] = account
+			}
+		}
+		for hash, data := range p1.accountData {
+			account := new(Account)
+			if err := rlp.DecodeBytes(data, account); err != nil {
+				return nil, err
+			}
+			accounts[hash] = account
+		}
+	}
+	//p2 := p1.Parent().(*diffLayer)
+	//if p1 == nil {
+	//	p2 = dl
+	//}
+
+	//	accounts := make(map[common.Hash]*Account, len(dl.accountData)+len(p1.accountData)+len(p2.accountData))
+	//for hash, data := range p2.accountData {
+	//	account := new(Account)
+	//	if err := rlp.DecodeBytes(data, account); err != nil {
+	//		return nil, err
+	//	}
+	//	accounts[hash] = account
+	//}
+	//for hash, data := range p1.accountData {
+	//	account := new(Account)
+	//	if err := rlp.DecodeBytes(data, account); err != nil {
+	//		return nil, err
+	//	}
+	//	accounts[hash] = account
+	//}
+	//accounts := make(map[common.Hash]*Account, len(dl.accountData))
+	for hash, data := range dl.accountData {
+		account := new(Account)
+		if err := rlp.DecodeBytes(data, account); err != nil {
+			return nil, err
+		}
+		accounts[hash] = account
+	}
+	return accounts, nil
+}
 
 // AccountRLP directly retrieves the account RLP associated with a particular
 // hash in the snapshot slim data format.
