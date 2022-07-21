@@ -35,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/ethereum/go-ethereum/perf"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -1367,8 +1368,10 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 
 	commitTrie := func() error {
 		commitErr := func() error {
+			var startTime time.Time
 			if s.pipeCommit {
 				<-snapUpdated
+				startTime = time.Now()
 				if s.WaitPipeVerificationOnHash(s.originalRoot) == nil {
 					s.CorrectAccountsRoot(s.originalRoot)
 				}
@@ -1381,12 +1384,15 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 					}
 					s.snaps.Snapshot(s.expectedRoot).CorrectAccounts(accountData)
 				}
+			} else {
+				startTime = time.Now()
 			}
 
 			if s.stateRoot = s.StateIntermediateRoot(); s.fullProcessed && s.expectedRoot != s.stateRoot {
 				log.Error("Invalid merkle root", "remote", s.expectedRoot, "local", s.stateRoot)
 				return fmt.Errorf("invalid merkle root (remote: %x local: %x)", s.expectedRoot, s.stateRoot)
 			}
+			perf.RecordMPMetrics(perf.MpImportingVerifyState, startTime)
 
 			tasks := make(chan func())
 			taskResults := make(chan error, len(s.stateObjectsDirty))
