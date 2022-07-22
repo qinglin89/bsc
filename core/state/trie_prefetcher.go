@@ -127,6 +127,9 @@ func (p *triePrefetcher) mainLoop() {
 			fetcher.schedule(pMsg.keys)
 
 		case <-p.closeMainChan:
+			log.Info("Prefetcher statistics", "root", p.root)
+			usedMap := make(map[string]struct{}, 1000)
+			hitMap := make(map[string]struct{}, 1000)
 			for _, fetcher := range p.fetchers {
 				p.abortChan <- fetcher // safe to do multiple times
 				<-fetcher.term
@@ -134,26 +137,40 @@ func (p *triePrefetcher) mainLoop() {
 				if metrics.EnabledExpensive {
 					switch fetcher.root {
 					case p.root:
+						countA := len(fetcher.seen)
+						countH := 0
 						p.accountLoadMeter.Mark(int64(len(fetcher.seen)))
 						p.accountDupMeter.Mark(int64(fetcher.dups))
 						p.accountSkipMeter.Mark(int64(len(fetcher.tasks)))
 						fetcher.lock.Lock()
 						for _, key := range fetcher.used {
-							delete(fetcher.seen, string(key))
+							if _, ok := fetcher.seen[string(key)]; ok {
+								delete(fetcher.seen, string(key))
+								countH++
+							}
 						}
 						fetcher.lock.Unlock()
 						p.accountWasteMeter.Mark(int64(len(fetcher.seen)))
+						rate := float64(countH) / float64(countA)
+						log.Info("Prefetcher statistics", "root", p.root, "totalPrefetched", countA, "rate", rate)
 
 					case p.rootPrefetch:
+						countA := len(fetcher.seen)
+						countH := 0
 						p.accountStaleLoadMeter.Mark(int64(len(fetcher.seen)))
 						p.accountStaleDupMeter.Mark(int64(fetcher.dups))
 						p.accountStaleSkipMeter.Mark(int64(len(fetcher.tasks)))
 						fetcher.lock.Lock()
 						for _, key := range fetcher.used {
-							delete(fetcher.seen, string(key))
+							if _, ok := fetcher.seen[string(key)]; ok {
+								delete(fetcher.seen, string(key))
+								countH++
+							}
 						}
 						fetcher.lock.Unlock()
 						p.accountStaleWasteMeter.Mark(int64(len(fetcher.seen)))
+						rate := float64(countH) / float64(countA)
+						log.Info("Prefetcher statistics", "root", p.root, "rootPrefech", p.rootPrefetch, "totalPrefetched", countA, "rate", rate)
 
 					default:
 						p.storageLoadMeter.Mark(int64(len(fetcher.seen)))
@@ -162,7 +179,11 @@ func (p *triePrefetcher) mainLoop() {
 
 						fetcher.lock.Lock()
 						for _, key := range fetcher.used {
-							delete(fetcher.seen, string(key))
+							usedMap[string(key)] = struct{}{}
+							if _, ok := fetcher.seen[string(key)]; ok {
+								hitMap[string(key)] = struct{}{}
+								delete(fetcher.seen, string(key))
+							}
 						}
 						fetcher.lock.Unlock()
 						p.storageWasteMeter.Mark(int64(len(fetcher.seen)))
@@ -170,6 +191,16 @@ func (p *triePrefetcher) mainLoop() {
 					}
 				}
 			}
+			countU := len(usedMap)
+			countH := 0
+			for k, _ := range usedMap {
+				if _, ok := hitMap[k]; ok {
+					countH++
+				}
+			}
+			rate := float64(countH) / float64(countU)
+			log.Info("Prefetcher statistics", "root", p.root, "storage totalUsed", countU, "rate", rate)
+
 			close(p.closeAbortChan)
 			close(p.closeMainDoneChan)
 			p.fetchersMutex.Lock()

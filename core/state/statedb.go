@@ -1155,17 +1155,32 @@ func (s *StateDB) StateIntermediateRoot() common.Hash {
 	}
 
 	usedAddrs := make([][]byte, 0, len(s.stateObjectsPending))
+	usedAddrsUnchanged := make([][]byte, 0, len(s.stateObjectsPending))
+	countA := 0
+	countUnchanged := 0
+
 	if !s.noTrie {
 		for addr := range s.stateObjectsPending {
-			if obj := s.stateObjects[addr]; obj.deleted {
+			obj := s.stateObjects[addr]
+			if obj.deleted {
 				s.deleteStateObject(obj)
 			} else {
 				s.updateStateObject(obj)
 			}
+
+			if !obj.rootCorrected {
+				countUnchanged++
+				usedAddrsUnchanged = append(usedAddrsUnchanged, common.CopyBytes(addr[:]))
+			}
+			countA++
 			usedAddrs = append(usedAddrs, common.CopyBytes(addr[:])) // Copy needed for closure
 		}
+		log.Info("StateIntermediateRoot stas", "rootUnchanged", countUnchanged, "rootAll", countA)
 		if prefetcher != nil {
 			prefetcher.used(s.originalRoot, usedAddrs)
+			if prefetcher.rootPrefetch != (common.Hash{}) {
+				prefetcher.used(prefetcher.rootPrefetch, usedAddrsUnchanged)
+			}
 		}
 	}
 
