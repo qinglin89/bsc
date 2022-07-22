@@ -47,10 +47,11 @@ type prefetchMsg struct {
 //
 // Note, the prefetcher's API is not thread safe.
 type triePrefetcher struct {
-	db       Database                    // Database to fetch trie nodes through
-	root     common.Hash                 // Root hash of theaccount trie for metrics
-	fetches  map[common.Hash]Trie        // Partially or fully fetcher tries
-	fetchers map[common.Hash]*subfetcher // Subfetchers for each trie
+	db           Database    // Database to fetch trie nodes through
+	root         common.Hash // Root hash of theaccount trie for metrics
+	rootPrefetch common.Hash
+	fetches      map[common.Hash]Trie        // Partially or fully fetcher tries
+	fetchers     map[common.Hash]*subfetcher // Subfetchers for each trie
 
 	closed            int32
 	closeMainChan     chan struct{} // it is to inform the mainLoop
@@ -70,14 +71,20 @@ type triePrefetcher struct {
 	storageDupMeter   metrics.Meter
 	storageSkipMeter  metrics.Meter
 	storageWasteMeter metrics.Meter
+
+	accountStaleLoadMeter  metrics.Meter
+	accountStaleDupMeter   metrics.Meter
+	accountStaleSkipMeter  metrics.Meter
+	accountStaleWasteMeter metrics.Meter
 }
 
 // newTriePrefetcher
-func newTriePrefetcher(db Database, root common.Hash, namespace string) *triePrefetcher {
+func newTriePrefetcher(db Database, root, rootPrefetch common.Hash, namespace string) *triePrefetcher {
 	prefix := triePrefetchMetricsPrefix + namespace
 	p := &triePrefetcher{
 		db:             db,
 		root:           root,
+		rootPrefetch:   rootPrefetch,
 		fetchers:       make(map[common.Hash]*subfetcher), // Active prefetchers use the fetchers map
 		abortChan:      make(chan *subfetcher, abortChanSize),
 		closeAbortChan: make(chan struct{}),
@@ -95,6 +102,11 @@ func newTriePrefetcher(db Database, root common.Hash, namespace string) *triePre
 		storageDupMeter:   metrics.GetOrRegisterMeter(prefix+"/storage/dup", nil),
 		storageSkipMeter:  metrics.GetOrRegisterMeter(prefix+"/storage/skip", nil),
 		storageWasteMeter: metrics.GetOrRegisterMeter(prefix+"/storage/waste", nil),
+
+		accountStaleLoadMeter:  metrics.GetOrRegisterMeter(prefix+"/accountst/load", nil),
+		accountStaleDupMeter:   metrics.GetOrRegisterMeter(prefix+"/accountst/dup", nil),
+		accountStaleSkipMeter:  metrics.GetOrRegisterMeter(prefix+"/accountst/skip", nil),
+		accountStaleWasteMeter: metrics.GetOrRegisterMeter(prefix+"/accountst/waste", nil),
 	}
 	go p.abortLoop()
 	go p.mainLoop()
@@ -118,8 +130,10 @@ func (p *triePrefetcher) mainLoop() {
 			for _, fetcher := range p.fetchers {
 				p.abortChan <- fetcher // safe to do multiple times
 				<-fetcher.term
+
 				if metrics.EnabledExpensive {
-					if fetcher.root == p.root {
+					switch fetcher.root {
+					case p.root:
 						p.accountLoadMeter.Mark(int64(len(fetcher.seen)))
 						p.accountDupMeter.Mark(int64(fetcher.dups))
 						p.accountSkipMeter.Mark(int64(len(fetcher.tasks)))
@@ -129,7 +143,19 @@ func (p *triePrefetcher) mainLoop() {
 						}
 						fetcher.lock.Unlock()
 						p.accountWasteMeter.Mark(int64(len(fetcher.seen)))
-					} else {
+
+					case p.rootPrefetch:
+						p.accountStaleLoadMeter.Mark(int64(len(fetcher.seen)))
+						p.accountStaleDupMeter.Mark(int64(fetcher.dups))
+						p.accountStaleSkipMeter.Mark(int64(len(fetcher.tasks)))
+						fetcher.lock.Lock()
+						for _, key := range fetcher.used {
+							delete(fetcher.seen, string(key))
+						}
+						fetcher.lock.Unlock()
+						p.accountStaleWasteMeter.Mark(int64(len(fetcher.seen)))
+
+					default:
 						p.storageLoadMeter.Mark(int64(len(fetcher.seen)))
 						p.storageDupMeter.Mark(int64(fetcher.dups))
 						p.storageSkipMeter.Mark(int64(len(fetcher.tasks)))
@@ -140,6 +166,7 @@ func (p *triePrefetcher) mainLoop() {
 						}
 						fetcher.lock.Unlock()
 						p.storageWasteMeter.Mark(int64(len(fetcher.seen)))
+
 					}
 				}
 			}
