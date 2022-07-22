@@ -33,6 +33,8 @@ const (
 var (
 	// triePrefetchMetricsPrefix is the prefix under which to publis the metrics.
 	triePrefetchMetricsPrefix = "trie/prefetch/"
+	totalU                    = 0
+	totalH                    = 0
 )
 
 type prefetchMsg struct {
@@ -192,14 +194,17 @@ func (p *triePrefetcher) mainLoop() {
 				//}
 			}
 			countU := len(usedMap)
+			totalU += countU
 			countH := 0
 			for k, _ := range usedMap {
 				if _, ok := hitMap[k]; ok {
 					countH++
 				}
 			}
+			totalH += countH
 			rate := float64(countH) / float64(countU)
-			log.Info("Prefetcher statistics", "root", p.root, "storage totalUsed", countU, "rate", rate)
+			rateT := float64(totalH) / float64(totalU)
+			log.Info("Prefetcher statistics", "root", p.root, "storage totalUsed", countU, "rate", rate, "rateTotal", rateT)
 
 			close(p.closeAbortChan)
 			close(p.closeMainDoneChan)
