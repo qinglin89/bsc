@@ -134,62 +134,62 @@ func (p *triePrefetcher) mainLoop() {
 				p.abortChan <- fetcher // safe to do multiple times
 				<-fetcher.term
 
-				if metrics.EnabledExpensive {
-					switch fetcher.root {
-					case p.root:
-						countA := len(fetcher.seen)
-						countH := 0
-						p.accountLoadMeter.Mark(int64(len(fetcher.seen)))
-						p.accountDupMeter.Mark(int64(fetcher.dups))
-						p.accountSkipMeter.Mark(int64(len(fetcher.tasks)))
-						fetcher.lock.Lock()
-						for _, key := range fetcher.used {
-							if _, ok := fetcher.seen[string(key)]; ok {
-								delete(fetcher.seen, string(key))
-								countH++
-							}
+				//				if metrics.EnabledExpensive {
+				switch fetcher.root {
+				case p.root:
+					countA := len(fetcher.seen)
+					countH := 0
+					p.accountLoadMeter.Mark(int64(len(fetcher.seen)))
+					p.accountDupMeter.Mark(int64(fetcher.dups))
+					p.accountSkipMeter.Mark(int64(len(fetcher.tasks)))
+					fetcher.lock.Lock()
+					for _, key := range fetcher.used {
+						if _, ok := fetcher.seen[string(key)]; ok {
+							delete(fetcher.seen, string(key))
+							countH++
 						}
-						fetcher.lock.Unlock()
-						p.accountWasteMeter.Mark(int64(len(fetcher.seen)))
-						rate := float64(countH) / float64(countA)
-						log.Info("Prefetcher statistics", "root", p.root, "totalPrefetched", countA, "rate", rate)
-
-					case p.rootPrefetch:
-						countA := len(fetcher.seen)
-						countH := 0
-						p.accountStaleLoadMeter.Mark(int64(len(fetcher.seen)))
-						p.accountStaleDupMeter.Mark(int64(fetcher.dups))
-						p.accountStaleSkipMeter.Mark(int64(len(fetcher.tasks)))
-						fetcher.lock.Lock()
-						for _, key := range fetcher.used {
-							if _, ok := fetcher.seen[string(key)]; ok {
-								delete(fetcher.seen, string(key))
-								countH++
-							}
-						}
-						fetcher.lock.Unlock()
-						p.accountStaleWasteMeter.Mark(int64(len(fetcher.seen)))
-						rate := float64(countH) / float64(countA)
-						log.Info("Prefetcher statistics", "root", p.root, "rootPrefech", p.rootPrefetch, "totalPrefetched", countA, "rate", rate)
-
-					default:
-						p.storageLoadMeter.Mark(int64(len(fetcher.seen)))
-						p.storageDupMeter.Mark(int64(fetcher.dups))
-						p.storageSkipMeter.Mark(int64(len(fetcher.tasks)))
-
-						fetcher.lock.Lock()
-						for _, key := range fetcher.used {
-							usedMap[string(key)] = struct{}{}
-							if _, ok := fetcher.seen[string(key)]; ok {
-								hitMap[string(key)] = struct{}{}
-								delete(fetcher.seen, string(key))
-							}
-						}
-						fetcher.lock.Unlock()
-						p.storageWasteMeter.Mark(int64(len(fetcher.seen)))
-
 					}
+					fetcher.lock.Unlock()
+					p.accountWasteMeter.Mark(int64(len(fetcher.seen)))
+					rate := float64(countH) / float64(countA)
+					log.Info("Prefetcher statistics", "root", p.root, "totalPrefetched", countA, "rate", rate)
+
+				case p.rootPrefetch:
+					countA := len(fetcher.seen)
+					countH := 0
+					p.accountStaleLoadMeter.Mark(int64(len(fetcher.seen)))
+					p.accountStaleDupMeter.Mark(int64(fetcher.dups))
+					p.accountStaleSkipMeter.Mark(int64(len(fetcher.tasks)))
+					fetcher.lock.Lock()
+					for _, key := range fetcher.used {
+						if _, ok := fetcher.seen[string(key)]; ok {
+							delete(fetcher.seen, string(key))
+							countH++
+						}
+					}
+					fetcher.lock.Unlock()
+					p.accountStaleWasteMeter.Mark(int64(len(fetcher.seen)))
+					rate := float64(countH) / float64(countA)
+					log.Info("Prefetcher statistics", "root", p.root, "rootPrefech", p.rootPrefetch, "totalPrefetched", countA, "rate", rate)
+
+				default:
+					p.storageLoadMeter.Mark(int64(len(fetcher.seen)))
+					p.storageDupMeter.Mark(int64(fetcher.dups))
+					p.storageSkipMeter.Mark(int64(len(fetcher.tasks)))
+
+					fetcher.lock.Lock()
+					for _, key := range fetcher.used {
+						usedMap[string(key)] = struct{}{}
+						if _, ok := fetcher.seen[string(key)]; ok {
+							hitMap[string(key)] = struct{}{}
+							delete(fetcher.seen, string(key))
+						}
+					}
+					fetcher.lock.Unlock()
+					p.storageWasteMeter.Mark(int64(len(fetcher.seen)))
+
 				}
+				//}
 			}
 			countU := len(usedMap)
 			countH := 0
@@ -339,9 +339,9 @@ func (p *triePrefetcher) trie(root common.Hash) Trie {
 // used marks a batch of state items used to allow creating statistics as to
 // how useful or wasteful the prefetcher is.
 func (p *triePrefetcher) used(root common.Hash, used [][]byte) {
-	if !metrics.EnabledExpensive {
-		return
-	}
+	//	if !metrics.EnabledExpensive {
+	//		return
+	//	}
 	// If the prefetcher is an inactive one, bail out
 	if p.fetches != nil {
 		return
