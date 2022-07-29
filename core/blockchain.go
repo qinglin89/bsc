@@ -45,6 +45,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/perf"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -1677,7 +1678,10 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		return 0, errChainStopped
 	}
 	defer bc.chainmu.Unlock()
-	return bc.insertChain(chain, true, true)
+	start := time.Now()
+	n, err := bc.insertChain(chain, true, true)
+	perf.RecordMPMetrics(perf.MpImportingTotal, start)
+	return n, err
 }
 
 // insertChain is the internal implementation of InsertChain, which assumes that
@@ -1708,6 +1712,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
+
+	startVH := time.Now()
 	// Start the parallel header verifier
 	headers := make([]*types.Header, len(chain))
 	seals := make([]bool, len(chain))
@@ -1717,6 +1723,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		seals[i] = verifySeals
 	}
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
+	perf.RecordMPMetrics(perf.MpImportingVerifyHeader, startVH)
 	defer close(abort)
 
 	// Peek the error for the first block to decide the directing import logic
@@ -1908,6 +1915,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		}
 		statedb.SetExpectedStateRoot(block.Root())
 		statedb, receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
+		perf.RecordMPMetrics(perf.MpImportingProcess, substart)
 		close(interruptCh) // state prefetch can be stopped
 		activeState = statedb
 		if err != nil {
