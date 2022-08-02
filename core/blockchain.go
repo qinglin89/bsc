@@ -45,6 +45,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/perf"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -1677,7 +1678,10 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		return 0, errChainStopped
 	}
 	defer bc.chainmu.Unlock()
-	return bc.insertChain(chain, true, true)
+	sT := time.Now()
+	n, err := bc.insertChain(chain, true, true)
+	perf.RecordMPMetrics(perf.MpImportingTotal, sT)
+	return n, err
 }
 
 // insertChain is the internal implementation of InsertChain, which assumes that
@@ -1708,6 +1712,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
+	startVerifyHeader := time.Now()
 	// Start the parallel header verifier
 	headers := make([]*types.Header, len(chain))
 	seals := make([]bool, len(chain))
@@ -1717,6 +1722,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		seals[i] = verifySeals
 	}
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
+	perf.RecordMPMetrics(perf.MpImportingVerifyHeader, startVerifyHeader)
 	defer close(abort)
 
 	// Peek the error for the first block to decide the directing import logic
@@ -1906,6 +1912,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			bc.reportBlock(block, receipts, err)
 			return it.index, err
 		}
+		perf.RecordMPMetrics(perf.MpImportingProcess, substart)
 		// Update the metrics touched during block processing
 		accountReadTimer.Update(statedb.AccountReads)                 // Account reads are complete, we can mark them
 		storageReadTimer.Update(statedb.StorageReads)                 // Storage reads are complete, we can mark them
@@ -1947,6 +1954,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		if err != nil {
 			return it.index, err
 		}
+		perf.RecordMPMetrics(perf.MpImportingCommit, substart)
 		// Update the metrics touched during block commit
 		accountCommitTimer.Update(statedb.AccountCommits)   // Account commits are complete, we can mark them
 		storageCommitTimer.Update(statedb.StorageCommits)   // Storage commits are complete, we can mark them
