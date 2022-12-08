@@ -1872,6 +1872,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			parent = bc.GetHeader(block.ParentHash(), block.NumberU64()-1)
 		}
 		statedb, err := state.NewWithSharedPool(parent.Root, bc.stateCache, bc.snaps)
+		statedb.CountDebug = new(snapshot.AccessCountWithStatedb)
 		if err != nil {
 			return it.index, err
 		}
@@ -1995,6 +1996,30 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		bc.chainBlockFeed.Send(ChainHeadEvent{block})
 		dirty, _ := bc.stateCache.TrieDB().Size()
 		stats.report(chain, it.index, dirty)
+
+		allAc := statedb.CountDebug.AccessCount + statedb.CountDebug.StorageAC
+		allCached := statedb.CountDebug.AccessObjectsCache + statedb.CountDebug.StorageACC
+		allDiff := statedb.CountDebug.DiffLayers + statedb.CountDebug.StorageDiff
+		allDiskC := statedb.CountDebug.DiskLayerCahce + statedb.CountDebug.StorageDiskC
+		allDiskIO := statedb.CountDebug.DiskLayerIO + statedb.CountDebug.StorageDiskI
+		accountIORate := 0.0
+		storageIORate := 0.0
+		allIORate := 0.0
+		if statedb.CountDebug.AccessCount != 0 {
+			accountIORate = float64(statedb.CountDebug.DiskLayerIO) / float64(statedb.CountDebug.AccessCount)
+		}
+		if statedb.CountDebug.StorageAC != 0 {
+			storageIORate = float64(statedb.CountDebug.StorageDiskI) / float64(statedb.CountDebug.StorageAC)
+		}
+		if allAc != 0 {
+			allIORate = float64(allDiskIO) / float64(allAc)
+		}
+
+		log.Info("Cache efficiency statistics",
+			"AllAccess", allAc, "AllCached", allCached, "AllDiff", allDiff, "allDiskC", allDiskC, "allDiskIO", allDiskIO,
+			"account_access", statedb.CountDebug.AccessCount, "account_cache", statedb.CountDebug.AccessObjectsCache, "account_diffLayers", statedb.CountDebug.DiffLayers, "account_diskC", statedb.CountDebug.DiskLayerCahce, "account_diskIO", statedb.CountDebug.DiskLayerIO,
+			"storage_access", statedb.CountDebug.StorageAC, "storage_cache", statedb.CountDebug.StorageACC, "storage_diffLayers", statedb.CountDebug.StorageDiff, "storage_diskC", statedb.CountDebug.StorageDiskC, "sstorage_diskIO", statedb.CountDebug.StorageDiskI,
+			"rate_account_io", accountIORate, "rate_storage_io", storageIORate, "rate_all_io", allIORate)
 	}
 
 	// Any blocks remaining here? The only ones we care about are the future ones

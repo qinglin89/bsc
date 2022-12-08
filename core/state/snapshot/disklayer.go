@@ -98,6 +98,20 @@ func (dl *diskLayer) Account(hash common.Hash) (*Account, error) {
 	}
 	return account, nil
 }
+func (dl *diskLayer) AccountWithCount(hash common.Hash, count *AccessCountWithStatedb) (*Account, error) {
+	data, err := dl.AccountRLP(hash)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 { // can be both nil and []byte{}
+		return nil, nil
+	}
+	account := new(Account)
+	if err := rlp.DecodeBytes(data, account); err != nil {
+		panic(err)
+	}
+	return account, nil
+}
 
 // AccountRLP directly retrieves the account RLP associated with a particular
 // hash in the snapshot slim data format.
@@ -134,6 +148,44 @@ func (dl *diskLayer) AccountRLP(hash common.Hash) ([]byte, error) {
 	} else {
 		snapshotCleanAccountInexMeter.Mark(1)
 	}
+	return blob, nil
+}
+
+func (dl *diskLayer) AccountRLPWithCount(hash common.Hash, count *AccessCountWithStatedb) ([]byte, error) {
+	dl.lock.RLock()
+	defer dl.lock.RUnlock()
+
+	// If the layer was flattened into, consider it invalid (any live reference to
+	// the original should be marked as unusable).
+	if dl.stale {
+		return nil, ErrSnapshotStale
+	}
+	// If the layer is being generated, ensure the requested hash has already been
+	// covered by the generator.
+	if dl.genMarker != nil && bytes.Compare(hash[:], dl.genMarker) > 0 {
+		return nil, ErrNotCoveredYet
+	}
+	// If we're in the disk layer, all diff layers missed
+	snapshotDirtyAccountMissMeter.Mark(1)
+
+	// Try to retrieve the account from the memory cache
+	if blob, found := dl.cache.HasGet(nil, hash[:]); found {
+		snapshotCleanAccountHitMeter.Mark(1)
+		snapshotCleanAccountReadMeter.Mark(int64(len(blob)))
+		count.DiskLayerCahce++
+		return blob, nil
+	}
+	// Cache doesn't contain account, pull from disk and cache for later
+	blob := rawdb.ReadAccountSnapshot(dl.diskdb, hash)
+	dl.cache.Set(hash[:], blob)
+
+	snapshotCleanAccountMissMeter.Mark(1)
+	if n := len(blob); n > 0 {
+		snapshotCleanAccountWriteMeter.Mark(int64(n))
+	} else {
+		snapshotCleanAccountInexMeter.Mark(1)
+	}
+	count.DiskLayerIO++
 	return blob, nil
 }
 
@@ -174,6 +226,45 @@ func (dl *diskLayer) Storage(accountHash, storageHash common.Hash) ([]byte, erro
 	} else {
 		snapshotCleanStorageInexMeter.Mark(1)
 	}
+	return blob, nil
+}
+func (dl *diskLayer) StorageWithCount(accountHash, storageHash common.Hash, count *AccessCountWithStatedb) ([]byte, error) {
+	dl.lock.RLock()
+	defer dl.lock.RUnlock()
+
+	// If the layer was flattened into, consider it invalid (any live reference to
+	// the original should be marked as unusable).
+	if dl.stale {
+		return nil, ErrSnapshotStale
+	}
+	key := append(accountHash[:], storageHash[:]...)
+
+	// If the layer is being generated, ensure the requested hash has already been
+	// covered by the generator.
+	if dl.genMarker != nil && bytes.Compare(key, dl.genMarker) > 0 {
+		return nil, ErrNotCoveredYet
+	}
+	// If we're in the disk layer, all diff layers missed
+	snapshotDirtyStorageMissMeter.Mark(1)
+
+	// Try to retrieve the storage slot from the memory cache
+	if blob, found := dl.cache.HasGet(nil, key); found {
+		snapshotCleanStorageHitMeter.Mark(1)
+		snapshotCleanStorageReadMeter.Mark(int64(len(blob)))
+		count.StorageDiskC++
+		return blob, nil
+	}
+	// Cache doesn't contain storage slot, pull from disk and cache for later
+	blob := rawdb.ReadStorageSnapshot(dl.diskdb, accountHash, storageHash)
+	dl.cache.Set(key, blob)
+
+	snapshotCleanStorageMissMeter.Mark(1)
+	if n := len(blob); n > 0 {
+		snapshotCleanStorageWriteMeter.Mark(int64(n))
+	} else {
+		snapshotCleanStorageInexMeter.Mark(1)
+	}
+	count.StorageDiskI++
 	return blob, nil
 }
 

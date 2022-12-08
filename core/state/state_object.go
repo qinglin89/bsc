@@ -192,6 +192,9 @@ func (s *StateObject) GetState(db Database, key common.Hash) common.Hash {
 	// If we have a dirty value for this state entry, return it
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
+		if s.db.CountDebug != nil {
+			s.db.CountDebug.StorageACC++
+		}
 		return value
 	}
 	// Otherwise return the entry's original value
@@ -230,10 +233,16 @@ func (s *StateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 	// If we have a pending write or clean cached, return that
 	if value, pending := s.pendingStorage[key]; pending {
+		if s.db.CountDebug != nil {
+			s.db.CountDebug.StorageACC++
+		}
 		return value
 	}
 
 	if value, cached := s.getOriginStorage(key); cached {
+		if s.db.CountDebug != nil {
+			s.db.CountDebug.StorageACC++
+		}
 		return value
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -249,10 +258,17 @@ func (s *StateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		//      have been handles via pendingStorage above.
 		//   2) we don't have new values, and can deliver empty response back
 		if _, destructed := s.db.snapDestructs[s.address]; destructed {
+			if s.db.CountDebug != nil {
+				s.db.CountDebug.StorageDiff++
+			}
 			return common.Hash{}
 		}
 		start := time.Now()
-		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes()))
+		if s.db.CountDebug != nil {
+			enc, err = s.db.snap.StorageWithCount(s.addrHash, crypto.Keccak256Hash(key.Bytes()), s.db.CountDebug)
+		} else {
+			enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes()))
+		}
 		if metrics.EnabledExpensive {
 			s.db.SnapshotStorageReads += time.Since(start)
 		}
@@ -291,6 +307,9 @@ func (s *StateObject) SetState(db Database, key, value common.Hash) {
 	if s.fakeStorage != nil {
 		s.fakeStorage[key] = value
 		return
+	}
+	if s.db.CountDebug != nil {
+		s.db.CountDebug.StorageAC++
 	}
 	// If the new value is the same as old, don't set
 	prev := s.GetState(db, key)

@@ -146,6 +146,8 @@ type StateDB struct {
 	StorageUpdated int
 	AccountDeleted int
 	StorageDeleted int
+
+	CountDebug *snapshot.AccessCountWithStatedb
 }
 
 // New creates a new state from a given trie.
@@ -651,15 +653,30 @@ func (s *StateDB) getStateObject(addr common.Address) *StateObject {
 // flag set. This is needed by the state journal to revert to the correct s-
 // destructed object instead of wiping all knowledge about the state object.
 func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
+	if s.CountDebug != nil {
+		s.CountDebug.AccessCount++
+	}
 	// Prefer live objects if any is available
 	if obj := s.stateObjects[addr]; obj != nil {
+		if s.CountDebug != nil {
+			s.CountDebug.AccessObjectsCache++
+		}
 		return obj
 	}
 	// If no live objects are available, attempt to use snapshots
 	var data *types.StateAccount
 	if s.snap != nil {
 		start := time.Now()
-		acc, err := s.snap.Account(crypto.HashData(s.hasher, addr.Bytes()))
+		var (
+			acc *snapshot.Account
+			err error
+		)
+		if s.CountDebug != nil {
+			acc, err = s.snap.AccountWithCount(crypto.HashData(s.hasher, addr.Bytes()), s.CountDebug)
+		} else {
+			acc, err = s.snap.Account(crypto.HashData(s.hasher, addr.Bytes()))
+		}
+		//acc, err = s.snap.Account(crypto.HashData(s.hasher, addr.Bytes()))
 		if metrics.EnabledExpensive {
 			s.SnapshotAccountReads += time.Since(start)
 		}
