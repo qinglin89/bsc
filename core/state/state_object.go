@@ -193,6 +193,7 @@ func (s *StateObject) GetState(db Database, key common.Hash) common.Hash {
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
 		if s.db.CountDebug != nil {
+			s.db.CountDebug.StorageAC++
 			s.db.CountDebug.StorageACC++
 		}
 		return value
@@ -230,6 +231,9 @@ func (s *StateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
 	if s.fakeStorage != nil {
 		return s.fakeStorage[key]
+	}
+	if s.db.CountDebug != nil {
+		s.db.CountDebug.StorageAC++
 	}
 	// If we have a pending write or clean cached, return that
 	if value, pending := s.pendingStorage[key]; pending {
