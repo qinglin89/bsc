@@ -108,6 +108,8 @@ type AccessCountWithStatedb struct {
 	StorageDiskC       int
 	StorageDiskI       int
 	StorageTrie        int
+	StorageStaleDiff   int
+	StorageStaleDisk   int
 }
 
 type SnapshotDebug interface {

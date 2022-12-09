@@ -2018,7 +2018,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		log.Info("Cache efficiency statistics",
 			"AllAccess", allAc, "AllCached", allCached, "AllDiff", allDiff, "allDiskC", allDiskC, "allDiskIO", allDiskIO,
 			"account_access", statedb.CountDebug.AccessCount, "account_cache", statedb.CountDebug.AccessObjectsCache, "account_diffLayers", statedb.CountDebug.DiffLayers, "account_diskC", statedb.CountDebug.DiskLayerCahce, "account_diskIO", statedb.CountDebug.DiskLayerIO,
-			"storage_access", statedb.CountDebug.StorageAC, "storage_cache", statedb.CountDebug.StorageACC, "storage_diffLayers", statedb.CountDebug.StorageDiff, "storage_diskC", statedb.CountDebug.StorageDiskC, "storage_diskIO", statedb.CountDebug.StorageDiskI, "storage_trie", statedb.CountDebug.StorageTrie,
+			"storage_access", statedb.CountDebug.StorageAC, "storage_cache", statedb.CountDebug.StorageACC, "storage_diffLayers", statedb.CountDebug.StorageDiff, "storage_diskC", statedb.CountDebug.StorageDiskC, "storage_diskIO", statedb.CountDebug.StorageDiskI, "storage_trie", statedb.CountDebug.StorageTrie, "storage_diffStale", statedb.CountDebug.StorageStaleDiff, "storage_diskStale", statedb.CountDebug.StorageStaleDisk,
 			"rate_account_io", accountIORate, "rate_storage_io", storageIORate, "rate_all_io", allIORate)
 	}
 

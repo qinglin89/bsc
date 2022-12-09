@@ -584,6 +584,7 @@ func (dl *diffLayer) storageWithCount(accountHash, storageHash common.Hash, dept
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
 	if dl.Stale() {
+		count.StorageStaleDiff++
 		return nil, ErrSnapshotStale
 	}
 	// If the account is known locally, try to resolve the slot locally

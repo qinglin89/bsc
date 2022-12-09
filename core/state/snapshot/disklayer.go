@@ -235,6 +235,7 @@ func (dl *diskLayer) StorageWithCount(accountHash, storageHash common.Hash, coun
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
 	if dl.stale {
+		count.StorageStaleDisk++
 		return nil, ErrSnapshotStale
 	}
 	key := append(accountHash[:], storageHash[:]...)
