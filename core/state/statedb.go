@@ -709,6 +709,9 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
 			}
 			s.trie = tr
 		}
+		if s.CountDebug != nil {
+			s.CountDebug.AccountTrie++
+		}
 		start := time.Now()
 		enc, err := s.trie.TryGet(addr.Bytes())
 		if metrics.EnabledExpensive {

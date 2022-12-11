@@ -102,6 +102,7 @@ type AccessCountWithStatedb struct {
 	DiffLayers         int
 	DiskLayerCahce     int
 	DiskLayerIO        int
+	AccountTrie        int
 	StorageAC          int
 	StorageACC         int
 	StorageDiff        int

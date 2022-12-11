@@ -315,9 +315,6 @@ func (s *StateObject) SetState(db Database, key, value common.Hash) {
 		s.fakeStorage[key] = value
 		return
 	}
-	if s.db.CountDebug != nil {
-		s.db.CountDebug.StorageAC++
-	}
 	// If the new value is the same as old, don't set
 	prev := s.GetState(db, key)
 	if prev == value {
