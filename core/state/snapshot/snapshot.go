@@ -96,8 +96,32 @@ var (
 	errSnapshotCycle = errors.New("snapshot cycle")
 )
 
+type AccessCountWithStatedb struct {
+	AccessCount        int
+	AccessObjectsCache int
+	DiffLayers         int
+	DiskLayerCahce     int
+	DiskLayerIO        int
+	AccountTrie        int
+	StorageAC          int
+	StorageACC         int
+	StorageDiff        int
+	StorageDiskC       int
+	StorageDiskI       int
+	StorageTrie        int
+	StorageStaleDiff   int
+	StorageStaleDisk   int
+}
+
+type SnapshotDebug interface {
+	AccountWithCount(hash common.Hash, count *AccessCountWithStatedb) (*Account, error)
+	AccountRLPWithCount(hash common.Hash, count *AccessCountWithStatedb) ([]byte, error)
+}
+
 // Snapshot represents the functionality supported by a snapshot storage layer.
 type Snapshot interface {
+	AccountWithCount(hash common.Hash, count *AccessCountWithStatedb) (*Account, error)
+
 	// Root returns the root hash for which this snapshot was made.
 	Root() common.Hash
 
@@ -128,6 +152,7 @@ type Snapshot interface {
 	// Storage directly retrieves the storage data associated with a particular hash,
 	// within a particular account.
 	Storage(accountHash, storageHash common.Hash) ([]byte, error)
+	StorageWithCount(accountHash, storageHash common.Hash, count *AccessCountWithStatedb) ([]byte, error)
 
 	// Parent returns the subsequent layer of a snapshot, or nil if the base was
 	// reached.
