@@ -95,6 +95,8 @@ type StateDB struct {
 	snapAccounts   map[common.Address][]byte
 	snapStorage    map[common.Address]map[string][]byte
 
+	diff0 *sharedStateObjects
+
 	// This map holds 'live' objects, which will get modified while processing a state transition.
 	stateObjects        map[common.Address]*StateObject
 	stateObjectsPending map[common.Address]struct{} // State objects finalized but not yet written to the trie
@@ -674,6 +676,9 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
 	if obj := s.stateObjects[addr]; obj != nil {
 		return obj
 	}
+	if obj := s.diff0.get(addr); obj != nil {
+		return obj
+	}
 	// If no live objects are available, attempt to use snapshots
 	var data *types.StateAccount
 	if s.snap != nil {
@@ -737,6 +742,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
 
 func (s *StateDB) SetStateObject(object *StateObject) {
 	s.stateObjects[object.Address()] = object
+	s.diff0.set(object)
 }
 
 // GetOrNewStateObject retrieves a state object or create a new state object if nil.

@@ -37,3 +37,37 @@ func (s *StoragePool) getStorage(address common.Address) *sync.Map {
 	}
 	return storageMap
 }
+
+type sharedStateObjects struct {
+	stateObjects map[common.Address]*StateObject
+	mu           sync.RWMutex
+}
+
+func (s *sharedStateObjects) set(so *StateObject) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.stateObjects[so.address] == nil {
+		s.stateObjects[so.address] = &StateObject{
+			db:                  so.db,
+			address:             so.address,
+			addrHash:            so.addrHash,
+			data:                so.data,
+			sharedOriginStorage: so.sharedOriginStorage,
+		}
+	}
+}
+func (s *sharedStateObjects) get(addr common.Address) *StateObject {
+	s.mu.RLock()
+	so := s.stateObjects[addr]
+	s.mu.RUnlock()
+	return &StateObject{
+		db:                  so.db,
+		address:             so.address,
+		addrHash:            so.addrHash,
+		data:                so.data,
+		sharedOriginStorage: so.sharedOriginStorage,
+		originStorage:       make(Storage),
+		pendingStorage:      make(Storage),
+		dirtyStorage:        make(Storage),
+	}
+}
