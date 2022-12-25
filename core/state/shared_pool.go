@@ -38,6 +38,12 @@ func (s *StoragePool) getStorage(address common.Address) *sync.Map {
 	return storageMap
 }
 
+func newSharedStateObjects() *sharedStateObjects {
+	return &sharedStateObjects{
+		stateObjects: make(map[common.Address]*StateObject),
+	}
+}
+
 type sharedStateObjects struct {
 	stateObjects map[common.Address]*StateObject
 	mu           sync.RWMutex
