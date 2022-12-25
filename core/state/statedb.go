@@ -164,7 +164,6 @@ func NewWithSharedPool(root common.Hash, db Database, snaps *snapshot.Tree) (*St
 		return nil, err
 	}
 	statedb.storagePool = NewStoragePool()
-	statedb.diff0 = newSharedStateObjects()
 	return statedb, nil
 }
 
@@ -181,7 +180,7 @@ func newStateDB(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, 
 		journal:             newJournal(),
 		hasher:              crypto.NewKeccakState(),
 	}
-
+	sdb.diff0 = newSharedStateObjects()
 	if sdb.snaps != nil {
 		if sdb.snap = sdb.snaps.Snapshot(root); sdb.snap != nil {
 			sdb.snapDestructs = make(map[common.Address]struct{})
