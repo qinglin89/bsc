@@ -875,6 +875,7 @@ func (s *StateDB) copyInternal(doPrefetch bool) *StateDB {
 		preimages:           make(map[common.Hash][]byte, len(s.preimages)),
 		journal:             newJournal(),
 		hasher:              crypto.NewKeccakState(),
+		diff0:               s.diff0,
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {
