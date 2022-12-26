@@ -684,7 +684,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
 		}
 		return obj
 	}
-	if obj := s.diff0.get(addr); obj != nil {
+	if obj := s.diff0.get(addr, s); obj != nil {
 		//		s.SetStateObject(obj)
 		s.stateObjects[obj.Address()] = obj
 		return obj

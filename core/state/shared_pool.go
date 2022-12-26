@@ -54,7 +54,7 @@ func (s *sharedStateObjects) set(so *StateObject) {
 	defer s.mu.Unlock()
 	if s.stateObjects[so.address] == nil {
 		s.stateObjects[so.address] = &StateObject{
-			db:                  so.db,
+			//			db:                  so.db,
 			address:             so.address,
 			addrHash:            so.addrHash,
 			data:                so.data,
@@ -62,7 +62,7 @@ func (s *sharedStateObjects) set(so *StateObject) {
 		}
 	}
 }
-func (s *sharedStateObjects) get(addr common.Address) *StateObject {
+func (s *sharedStateObjects) get(addr common.Address, db *StateDB) *StateObject {
 	s.mu.RLock()
 	so := s.stateObjects[addr]
 	s.mu.RUnlock()
@@ -70,7 +70,7 @@ func (s *sharedStateObjects) get(addr common.Address) *StateObject {
 		return nil
 	}
 	return &StateObject{
-		db:                  so.db,
+		db:                  db,
 		address:             so.address,
 		addrHash:            so.addrHash,
 		data:                so.data,
@@ -81,12 +81,12 @@ func (s *sharedStateObjects) get(addr common.Address) *StateObject {
 	}
 }
 
-func copyStateObject(so *StateObject) *StateObject {
-	return &StateObject{
-		db:                  so.db,
-		address:             so.address,
-		addrHash:            so.addrHash,
-		data:                so.data,
-		sharedOriginStorage: so.sharedOriginStorage,
-	}
-}
+//func copyStateObject(so *StateObject) *StateObject {
+//	return &StateObject{
+//		db:                  so.db,
+//		address:             so.address,
+//		addrHash:            so.addrHash,
+//		data:                so.data,
+//		sharedOriginStorage: so.sharedOriginStorage,
+//	}
+//}
