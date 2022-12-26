@@ -687,6 +687,9 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
 	if obj := s.diff0.get(addr, s); obj != nil {
 		//		s.SetStateObject(obj)
 		s.stateObjects[obj.Address()] = obj
+		if s.CountDebug != nil {
+			s.CountDebug.SharedStateObjectCount++
+		}
 		return obj
 	}
 	// If no live objects are available, attempt to use snapshots

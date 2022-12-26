@@ -97,26 +97,28 @@ var (
 )
 
 type AccessCountWithStatedb struct {
-	AccessCount        int
-	AccessObjectsCache int
-	DiffLayers         int
-	DiffLayersTime     int64
-	DiskLayerCahce     int
-	DiskLayerCacheTime int64
-	DiskLayerIO        int
-	DiskLayerIOTime    int64
-	AccountTrie        int
-	StorageAC          int
-	StorageACC         int
-	StorageDiff        int
-	StorageDiffTime    int64
-	StorageDiskC       int
-	StorageDiskCTime   int64
-	StorageDiskI       int
-	StorageDiskITime   int64
-	StorageTrie        int
-	StorageStaleDiff   int
-	StorageStaleDisk   int
+	AccessCount            int
+	AccessObjectsCache     int
+	DiffLayers             int
+	DiffLayersTime         int64
+	DiskLayerCahce         int
+	DiskLayerCacheTime     int64
+	DiskLayerIO            int
+	DiskLayerIOTime        int64
+	AccountTrie            int
+	StorageAC              int
+	StorageACC             int
+	StorageDiff            int
+	StorageDiffTime        int64
+	StorageDiskC           int
+	StorageDiskCTime       int64
+	StorageDiskI           int
+	StorageDiskITime       int64
+	StorageTrie            int
+	StorageStaleDiff       int
+	StorageStaleDisk       int
+	SharedStateObjectCount int
+	SharedStorageCount     int
 }
 
 type SnapshotDebug interface {

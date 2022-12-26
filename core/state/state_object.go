@@ -212,6 +212,9 @@ func (s *StateObject) getOriginStorage(key common.Hash) (common.Hash, bool) {
 		if !ok {
 			return common.Hash{}, false
 		}
+		if s.db.CountDebug != nil {
+			s.db.CountDebug.SharedStorageCount++
+		}
 		storage := val.(common.Hash)
 		s.originStorage[key] = storage
 		return storage, true
