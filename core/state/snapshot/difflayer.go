@@ -414,6 +414,7 @@ func (dl *diffLayer) accountRLPWithCount(hash common.Hash, depth int, count *Acc
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
+	n := time.Now()
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
 	if dl.Stale() {
@@ -426,6 +427,7 @@ func (dl *diffLayer) accountRLPWithCount(hash common.Hash, depth int, count *Acc
 		snapshotDirtyAccountReadMeter.Mark(int64(len(data)))
 		snapshotBloomAccountTrueHitMeter.Mark(1)
 		count.DiffLayers += depth + 1
+		count.DiffLayersTime += time.Now().Sub(n).Milliseconds()
 		return data, nil
 	}
 	// If the account is known locally, but deleted, return it
@@ -435,10 +437,12 @@ func (dl *diffLayer) accountRLPWithCount(hash common.Hash, depth int, count *Acc
 		snapshotDirtyAccountInexMeter.Mark(1)
 		snapshotBloomAccountTrueHitMeter.Mark(1)
 		count.DiffLayers += depth + 1
+		count.DiffLayersTime += time.Now().Sub(n).Milliseconds()
 		return nil, nil
 	}
 	// Account unknown to this diff, resolve from parent
 	if diff, ok := dl.parent.(*diffLayer); ok {
+		count.DiffLayersTime += time.Now().Sub(n).Milliseconds()
 		return diff.accountRLPWithCount(hash, depth+1, count)
 	}
 	// Failed to resolve through diff layers, mark a bloom error and use the disk
@@ -580,7 +584,7 @@ func (dl *diffLayer) storage(accountHash, storageHash common.Hash, depth int) ([
 func (dl *diffLayer) storageWithCount(accountHash, storageHash common.Hash, depth int, count *AccessCountWithStatedb) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
-
+	n := time.Now()
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
 	if dl.Stale() {
@@ -599,6 +603,7 @@ func (dl *diffLayer) storageWithCount(accountHash, storageHash common.Hash, dept
 			}
 			snapshotBloomStorageTrueHitMeter.Mark(1)
 			count.StorageDiff += depth + 1
+			count.StorageDiffTime += time.Now().Sub(n).Milliseconds()
 			return data, nil
 		}
 	}
@@ -609,10 +614,12 @@ func (dl *diffLayer) storageWithCount(accountHash, storageHash common.Hash, dept
 		snapshotDirtyStorageInexMeter.Mark(1)
 		snapshotBloomStorageTrueHitMeter.Mark(1)
 		count.StorageDiff += depth + 1
+		count.StorageDiffTime += time.Now().Sub(n).Milliseconds()
 		return nil, nil
 	}
 	// Storage slot unknown to this diff, resolve from parent
 	if diff, ok := dl.parent.(*diffLayer); ok {
+		count.StorageDiffTime += time.Now().Sub(n).Milliseconds()
 		return diff.storageWithCount(accountHash, storageHash, depth+1, count)
 	}
 	// Failed to resolve through diff layers, mark a bloom error and use the disk

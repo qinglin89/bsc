@@ -19,6 +19,7 @@ package snapshot
 import (
 	"bytes"
 	"sync"
+	"time"
 
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/ethereum/go-ethereum/common"
@@ -154,6 +155,7 @@ func (dl *diskLayer) AccountRLP(hash common.Hash) ([]byte, error) {
 func (dl *diskLayer) AccountRLPWithCount(hash common.Hash, count *AccessCountWithStatedb) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
+	n := time.Now()
 
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
@@ -173,6 +175,7 @@ func (dl *diskLayer) AccountRLPWithCount(hash common.Hash, count *AccessCountWit
 		snapshotCleanAccountHitMeter.Mark(1)
 		snapshotCleanAccountReadMeter.Mark(int64(len(blob)))
 		count.DiskLayerCahce++
+		count.DiskLayerCacheTime += time.Now().Sub(n).Milliseconds()
 		return blob, nil
 	}
 	// Cache doesn't contain account, pull from disk and cache for later
@@ -185,6 +188,7 @@ func (dl *diskLayer) AccountRLPWithCount(hash common.Hash, count *AccessCountWit
 	} else {
 		snapshotCleanAccountInexMeter.Mark(1)
 	}
+	count.DiskLayerIOTime += time.Now().Sub(n).Milliseconds()
 	count.DiskLayerIO++
 	return blob, nil
 }
