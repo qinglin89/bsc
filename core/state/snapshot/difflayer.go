@@ -427,7 +427,7 @@ func (dl *diffLayer) accountRLPWithCount(hash common.Hash, depth int, count *Acc
 		snapshotDirtyAccountReadMeter.Mark(int64(len(data)))
 		snapshotBloomAccountTrueHitMeter.Mark(1)
 		count.DiffLayers += depth + 1
-		count.DiffLayersTime += time.Now().Sub(n).Milliseconds()
+		count.DiffLayersTime += time.Now().Sub(n).Microseconds()
 		return data, nil
 	}
 	// If the account is known locally, but deleted, return it
@@ -437,12 +437,12 @@ func (dl *diffLayer) accountRLPWithCount(hash common.Hash, depth int, count *Acc
 		snapshotDirtyAccountInexMeter.Mark(1)
 		snapshotBloomAccountTrueHitMeter.Mark(1)
 		count.DiffLayers += depth + 1
-		count.DiffLayersTime += time.Now().Sub(n).Milliseconds()
+		count.DiffLayersTime += time.Now().Sub(n).Microseconds()
 		return nil, nil
 	}
 	// Account unknown to this diff, resolve from parent
 	if diff, ok := dl.parent.(*diffLayer); ok {
-		count.DiffLayersTime += time.Now().Sub(n).Milliseconds()
+		count.DiffLayersTime += time.Now().Sub(n).Microseconds()
 		return diff.accountRLPWithCount(hash, depth+1, count)
 	}
 	// Failed to resolve through diff layers, mark a bloom error and use the disk
@@ -603,7 +603,7 @@ func (dl *diffLayer) storageWithCount(accountHash, storageHash common.Hash, dept
 			}
 			snapshotBloomStorageTrueHitMeter.Mark(1)
 			count.StorageDiff += depth + 1
-			count.StorageDiffTime += time.Now().Sub(n).Milliseconds()
+			count.StorageDiffTime += time.Now().Sub(n).Microseconds()
 			return data, nil
 		}
 	}
@@ -614,12 +614,12 @@ func (dl *diffLayer) storageWithCount(accountHash, storageHash common.Hash, dept
 		snapshotDirtyStorageInexMeter.Mark(1)
 		snapshotBloomStorageTrueHitMeter.Mark(1)
 		count.StorageDiff += depth + 1
-		count.StorageDiffTime += time.Now().Sub(n).Milliseconds()
+		count.StorageDiffTime += time.Now().Sub(n).Microseconds()
 		return nil, nil
 	}
 	// Storage slot unknown to this diff, resolve from parent
 	if diff, ok := dl.parent.(*diffLayer); ok {
-		count.StorageDiffTime += time.Now().Sub(n).Milliseconds()
+		count.StorageDiffTime += time.Now().Sub(n).Microseconds()
 		return diff.storageWithCount(accountHash, storageHash, depth+1, count)
 	}
 	// Failed to resolve through diff layers, mark a bloom error and use the disk

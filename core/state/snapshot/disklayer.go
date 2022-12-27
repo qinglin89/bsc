@@ -175,7 +175,7 @@ func (dl *diskLayer) AccountRLPWithCount(hash common.Hash, count *AccessCountWit
 		snapshotCleanAccountHitMeter.Mark(1)
 		snapshotCleanAccountReadMeter.Mark(int64(len(blob)))
 		count.DiskLayerCahce++
-		count.DiskLayerCacheTime += time.Now().Sub(n).Milliseconds()
+		count.DiskLayerCacheTime += time.Now().Sub(n).Microseconds()
 		return blob, nil
 	}
 	// Cache doesn't contain account, pull from disk and cache for later
@@ -188,7 +188,7 @@ func (dl *diskLayer) AccountRLPWithCount(hash common.Hash, count *AccessCountWit
 	} else {
 		snapshotCleanAccountInexMeter.Mark(1)
 	}
-	count.DiskLayerIOTime += time.Now().Sub(n).Milliseconds()
+	count.DiskLayerIOTime += time.Now().Sub(n).Microseconds()
 	count.DiskLayerIO++
 	return blob, nil
 }
