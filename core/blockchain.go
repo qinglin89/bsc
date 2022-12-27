@@ -2024,6 +2024,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			"storageDiffTime", statedb.CountDebug.StorageDiffTime, "storageDiskCTime", statedb.CountDebug.StorageDiskCTime, "storageDiskITime", statedb.CountDebug.StorageDiskITime,
 			"accountDiskTotalTime", statedb.CountDebug.DiskLayerCacheTime+statedb.CountDebug.DiskLayerIOTime,
 			"storageDiskTotalTime", statedb.CountDebug.StorageDiskCTime+statedb.CountDebug.StorageDiskITime,
+			"sharedStateObjectsCount", statedb.CountDebug.SharedStateObjectCount,
+			"sharedStorageCount", statedb.CountDebug.SharedStorageCount,
 		)
 	}
 
