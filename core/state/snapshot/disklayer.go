@@ -100,7 +100,7 @@ func (dl *diskLayer) Account(hash common.Hash) (*Account, error) {
 	return account, nil
 }
 func (dl *diskLayer) AccountWithCount(hash common.Hash, count *AccessCountWithStatedb) (*Account, error) {
-	data, err := dl.AccountRLP(hash)
+	data, err := dl.AccountRLPWithCount(hash, count)
 	if err != nil {
 		return nil, err
 	}
