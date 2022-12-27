@@ -2022,6 +2022,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			"rate_account_io", accountIORate, "rate_storage_io", storageIORate, "rate_all_io", allIORate,
 			"accountDiffTime", statedb.CountDebug.DiffLayersTime, "accountDiskCTime", statedb.CountDebug.DiskLayerCacheTime, "accountDiskITime", statedb.CountDebug.DiskLayerIOTime,
 			"storageDiffTime", statedb.CountDebug.StorageDiffTime, "storageDiskCTime", statedb.CountDebug.StorageDiskCTime, "storageDiskITime", statedb.CountDebug.StorageDiskITime,
+			"accountDiskTotalTime", statedb.CountDebug.DiskLayerCacheTime+statedb.CountDebug.DiskLayerIOTime,
+			"storageDiskTotalTime", statedb.CountDebug.StorageDiskCTime+statedb.CountDebug.StorageDiskITime,
 		)
 	}
 
