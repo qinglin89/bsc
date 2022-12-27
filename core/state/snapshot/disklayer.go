@@ -155,7 +155,7 @@ func (dl *diskLayer) AccountRLP(hash common.Hash) ([]byte, error) {
 func (dl *diskLayer) AccountRLPWithCount(hash common.Hash, count *AccessCountWithStatedb) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
-	n := time.Now()
+	nw := time.Now()
 
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
@@ -175,7 +175,7 @@ func (dl *diskLayer) AccountRLPWithCount(hash common.Hash, count *AccessCountWit
 		snapshotCleanAccountHitMeter.Mark(1)
 		snapshotCleanAccountReadMeter.Mark(int64(len(blob)))
 		count.DiskLayerCahce++
-		count.DiskLayerCacheTime += time.Now().Sub(n).Microseconds()
+		count.DiskLayerCacheTime += time.Now().Sub(nw).Microseconds()
 		return blob, nil
 	}
 	// Cache doesn't contain account, pull from disk and cache for later
@@ -188,7 +188,7 @@ func (dl *diskLayer) AccountRLPWithCount(hash common.Hash, count *AccessCountWit
 	} else {
 		snapshotCleanAccountInexMeter.Mark(1)
 	}
-	count.DiskLayerIOTime += time.Now().Sub(n).Microseconds()
+	count.DiskLayerIOTime += time.Now().Sub(nw).Microseconds()
 	count.DiskLayerIO++
 	return blob, nil
 }
@@ -235,6 +235,7 @@ func (dl *diskLayer) Storage(accountHash, storageHash common.Hash) ([]byte, erro
 func (dl *diskLayer) StorageWithCount(accountHash, storageHash common.Hash, count *AccessCountWithStatedb) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
+	nw := time.Now()
 
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
@@ -257,6 +258,7 @@ func (dl *diskLayer) StorageWithCount(accountHash, storageHash common.Hash, coun
 		snapshotCleanStorageHitMeter.Mark(1)
 		snapshotCleanStorageReadMeter.Mark(int64(len(blob)))
 		count.StorageDiskC++
+		count.StorageDiskCTime += time.Now().Sub(nw).Microseconds()
 		return blob, nil
 	}
 	// Cache doesn't contain storage slot, pull from disk and cache for later
@@ -269,6 +271,7 @@ func (dl *diskLayer) StorageWithCount(accountHash, storageHash common.Hash, coun
 	} else {
 		snapshotCleanStorageInexMeter.Mark(1)
 	}
+	count.StorageDiskITime += time.Now().Sub(nw).Microseconds()
 	count.StorageDiskI++
 	return blob, nil
 }
