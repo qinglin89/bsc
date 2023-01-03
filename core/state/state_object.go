@@ -208,9 +208,18 @@ func (s *StateObject) getOriginStorage(key common.Hash) (common.Hash, bool) {
 	}
 	// if L1 cache miss, try to get it from shared pool
 	if s.sharedOriginStorage != nil {
+		if s.db.CountDebug != nil {
+			s.db.CountDebug.SharedStorageCheckCount++
+		}
 		val, ok := s.sharedOriginStorage.Load(key)
 		if !ok {
+			if s.db.CountDebug != nil {
+				s.db.CountDebug.SharedStorageCheckMissLengthT += s.db.CountDebug.SharedStorageLength
+			}
 			return common.Hash{}, false
+		}
+		if s.db.CountDebug != nil {
+			s.db.CountDebug.SharedStorageCount++
 		}
 		storage := val.(common.Hash)
 		s.originStorage[key] = storage
@@ -222,6 +231,9 @@ func (s *StateObject) getOriginStorage(key common.Hash) (common.Hash, bool) {
 func (s *StateObject) setOriginStorage(key common.Hash, value common.Hash) {
 	if s.db.writeOnSharedStorage && s.sharedOriginStorage != nil {
 		s.sharedOriginStorage.Store(key, value)
+		if s.db.CountDebug != nil {
+			s.db.CountDebug.SharedStorageLength++
+		}
 	}
 	s.originStorage[key] = value
 }

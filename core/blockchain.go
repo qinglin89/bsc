@@ -2005,6 +2005,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		accountIORate := 0.0
 		storageIORate := 0.0
 		allIORate := 0.0
+		aveLength := 0.0
+		if statedb.CountDebug.SharedStorageCheckCount > 0 {
+			aveLength = float64(statedb.CountDebug.SharedStorageCheckMissLengthT) / float64(statedb.CountDebug.SharedStorageCheckCount)
+		}
 		if statedb.CountDebug.AccessCount != 0 {
 			accountIORate = float64(statedb.CountDebug.DiskLayerIO) / float64(statedb.CountDebug.AccessCount)
 		}
@@ -2022,6 +2026,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			"rate_account_io", accountIORate, "rate_storage_io", storageIORate, "rate_all_io", allIORate,
 			"accountDiffTime", statedb.CountDebug.DiffLayersTime, "accountDiskCTime", statedb.CountDebug.DiskLayerCacheTime, "accountDiskITime", statedb.CountDebug.DiskLayerIOTime,
 			"storageDiffTime", statedb.CountDebug.StorageDiffTime, "storageDiskCTime", statedb.CountDebug.StorageDiskCTime, "storageDiskITime", statedb.CountDebug.StorageDiskITime,
+			"SharedStorageCountHit", statedb.CountDebug.SharedStorageCount, "SharedStorageCheckCount", statedb.CountDebug.SharedStorageCheckCount, "SharedStorageCheckMissLengthT", statedb.CountDebug.SharedStorageCheckMissLengthT, "SharedStorageCheckAverageMissLength", aveLength, "SharedStorageCheckMissCount", statedb.CountDebug.SharedStorageCheckCount-statedb.CountDebug.SharedStorageCount,
 		)
 	}
 
