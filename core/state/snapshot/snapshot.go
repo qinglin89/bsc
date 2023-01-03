@@ -118,7 +118,6 @@ type AccessCountWithStatedb struct {
 	StorageStaleDiff              int
 	StorageStaleDisk              int
 	SharedStorageCount            int
-	SharedStorageLength           int
 	SharedStorageCheckCount       int
 	SharedStorageCheckMissLengthT int
 }

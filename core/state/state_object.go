@@ -214,7 +214,7 @@ func (s *StateObject) getOriginStorage(key common.Hash) (common.Hash, bool) {
 		val, ok := s.sharedOriginStorage.Load(key)
 		if !ok {
 			if s.db.CountDebug != nil {
-				s.db.CountDebug.SharedStorageCheckMissLengthT += s.db.CountDebug.SharedStorageLength
+				s.db.CountDebug.SharedStorageCheckMissLengthT += s.db.sharedStorageLength
 			}
 			return common.Hash{}, false
 		}
@@ -231,9 +231,7 @@ func (s *StateObject) getOriginStorage(key common.Hash) (common.Hash, bool) {
 func (s *StateObject) setOriginStorage(key common.Hash, value common.Hash) {
 	if s.db.writeOnSharedStorage && s.sharedOriginStorage != nil {
 		s.sharedOriginStorage.Store(key, value)
-		if s.db.CountDebug != nil {
-			s.db.CountDebug.SharedStorageLength++
-		}
+		s.db.sharedStorageLength++
 	}
 	s.originStorage[key] = value
 }
