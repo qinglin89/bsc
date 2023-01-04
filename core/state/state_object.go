@@ -82,8 +82,8 @@ type StateObject struct {
 	trie Trie // storage trie, which becomes non-nil on first access
 	code Code // contract bytecode, which gets set when code is loaded
 
-	sharedOriginStorage *sync.Map // Point to the entry of the stateObject in sharedPool
-	originStorage       Storage   // Storage cache of original entries to dedup rewrites, reset for every transaction
+	sharedOriginStorage *syncMap // Point to the entry of the stateObject in sharedPool
+	originStorage       Storage  // Storage cache of original entries to dedup rewrites, reset for every transaction
 
 	pendingStorage Storage // Storage entries that need to be flushed to disk, at the end of an entire block
 	dirtyStorage   Storage // Storage entries that have been modified in the current transaction execution
@@ -116,7 +116,7 @@ func newObject(db *StateDB, address common.Address, data types.StateAccount) *St
 	if data.Root == (common.Hash{}) {
 		data.Root = emptyRoot
 	}
-	var storageMap *sync.Map
+	var storageMap *syncMap
 	// Check whether the storage exist in pool, new originStorage if not exist
 	if db != nil && db.storagePool != nil {
 		storageMap = db.GetStorage(address)
@@ -214,7 +214,7 @@ func (s *StateObject) getOriginStorage(key common.Hash) (common.Hash, bool) {
 		val, ok := s.sharedOriginStorage.Load(key)
 		if !ok {
 			if s.db.CountDebug != nil {
-				s.db.CountDebug.SharedStorageCheckMissLengthT += s.db.sharedStorageLength
+				s.db.CountDebug.SharedStorageCheckMissLengthT += s.db.storagePool.Length()
 			}
 			return common.Hash{}, false
 		}
@@ -231,7 +231,7 @@ func (s *StateObject) getOriginStorage(key common.Hash) (common.Hash, bool) {
 func (s *StateObject) setOriginStorage(key common.Hash, value common.Hash) {
 	if s.db.writeOnSharedStorage && s.sharedOriginStorage != nil {
 		s.sharedOriginStorage.Store(key, value)
-		s.db.sharedStorageLength++
+		s.sharedOriginStorage.Count()
 	}
 	s.originStorage[key] = value
 }
