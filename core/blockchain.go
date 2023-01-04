@@ -2026,7 +2026,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			"rate_account_io", accountIORate, "rate_storage_io", storageIORate, "rate_all_io", allIORate,
 			"accountDiffTime", statedb.CountDebug.DiffLayersTime, "accountDiskCTime", statedb.CountDebug.DiskLayerCacheTime, "accountDiskITime", statedb.CountDebug.DiskLayerIOTime,
 			"storageDiffTime", statedb.CountDebug.StorageDiffTime, "storageDiskCTime", statedb.CountDebug.StorageDiskCTime, "storageDiskITime", statedb.CountDebug.StorageDiskITime,
-			"SharedStorageCountHit", statedb.CountDebug.SharedStorageCount, "SharedStorageCheckCount", statedb.CountDebug.SharedStorageCheckCount, "SharedStorageCheckMissLengthT", statedb.CountDebug.SharedStorageCheckMissLengthT, "SharedStorageCheckAverageMissLength", aveLength, "SharedStorageCheckMissCount", statedb.CountDebug.SharedStorageCheckCount-statedb.CountDebug.SharedStorageCount,
+			"SharedStorageCountHit", statedb.CountDebug.SharedStorageCount, "SharedStorageCheckCount", statedb.CountDebug.SharedStorageCheckCount, "SharedStorageCheckMissLengthT", statedb.CountDebug.SharedStorageCheckMissLengthT, "SharedStorageCheckAverageMissLength", aveLength, "SharedStorageCheckMissCount", statedb.CountDebug.SharedStorageCheckCount-statedb.CountDebug.SharedStorageCount, "blockTxLength", len(block.Transactions()),
 		)
 	}
 
