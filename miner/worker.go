@@ -416,17 +416,17 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			}
 			clearPending(head.Block.NumberU64())
 			timestamp = time.Now().Unix()
-			if p, ok := w.engine.(*parlia.Parlia); ok {
-				signedRecent, err := p.SignRecently(w.chain, head.Block)
-				if err != nil {
-					log.Info("Not allowed to propose block", "err", err)
-					continue
-				}
-				if signedRecent {
-					log.Info("Signed recently, must wait")
-					continue
-				}
-			}
+			//			if p, ok := w.engine.(*parlia.Parlia); ok {
+			//				signedRecent, err := p.SignRecently(w.chain, head.Block)
+			//				if err != nil {
+			//					log.Info("Not allowed to propose block", "err", err)
+			//					continue
+			//				}
+			//				if signedRecent {
+			//					log.Info("Signed recently, must wait")
+			//					continue
+			//				}
+			//			}
 			commit(commitInterruptNewHead)
 
 		case <-timer.C:
