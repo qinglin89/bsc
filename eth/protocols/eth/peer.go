@@ -20,12 +20,14 @@ import (
 	"math/big"
 	"math/rand"
 	"sync"
+	"time"
 
 	mapset "github.com/deckarep/golang-set"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/ethereum/go-ethereum/perf"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -297,10 +299,19 @@ func (p *Peer) AsyncSendNewBlockHash(block *types.Block) {
 func (p *Peer) SendNewBlock(block *types.Block, td *big.Int) error {
 	// Mark all the block hash as known, but ensure we don't overflow our limits
 	p.knownBlocks.Add(block.Hash())
-	return p2p.Send(p.rw, NewBlockMsg, &NewBlockPacket{
+	start := time.Now()
+	err := p2p.Send(p.rw, NewBlockMsg, &NewBlockPacket{
 		Block: block,
 		TD:    td,
 	})
+	perf.RecordMPMetrics(perf.MpPropagationSend, start)
+	perf.RecordMPLogs(nil, "P2P_SEND", "peer", p.id, "block", block.NumberU64(), "hash", block.Hash(), "time", time.Now().UnixNano())
+	return err
+
+	//	return p2p.Send(p.rw, NewBlockMsg, &NewBlockPacket{
+	//		Block: block,
+	//		TD:    td,
+	//	})
 }
 
 // AsyncSendNewBlock queues an entire block for propagation to a remote peer. If

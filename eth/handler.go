@@ -42,6 +42,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/perf"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -642,6 +643,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
 			return
 		}
+		start := time.Now()
 		// Send the block to a subset of our peers
 		var transfer []*ethPeer
 		if h.directBroadcast {
@@ -657,7 +659,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 			}
 			peer.AsyncSendNewBlock(block, td)
 		}
-
+		perf.RecordMPMetrics(perf.MpPropagationTotal, start)
 		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return
 	}

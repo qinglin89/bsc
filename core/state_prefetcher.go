@@ -17,6 +17,8 @@
 package core
 
 import (
+	"context"
+
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -162,7 +164,7 @@ func precacheTransaction(msg types.Message, config *params.ChainConfig, gaspool 
 	// Update the evm with the new transaction context.
 	evm.Reset(NewEVMTxContext(msg), statedb)
 	// Add addresses to access list if applicable
-	if _, err := ApplyMessage(evm, msg, gaspool); err == nil {
+	if _, err := ApplyMessage(context.TODO(), evm, msg, gaspool); err == nil {
 		statedb.Finalise(true)
 	}
 

@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/perf"
 	"github.com/ethereum/go-ethereum/trie"
 	lru "github.com/hashicorp/golang-lru"
 )
@@ -476,7 +477,9 @@ func (w *worker) mainLoop() {
 	for {
 		select {
 		case req := <-w.newWorkCh:
+			start := time.Now()
 			w.commitWork(req.interruptCh, req.timestamp)
+			perf.RecordMPMetrics(perf.MpMiningTotal, start)
 
 		case req := <-w.getWorkCh:
 			block, err := w.generateWork(req.params)
@@ -801,6 +804,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 	w.prefetcher.PrefetchMining(txsPrefetch, env.header, env.gasPool.Gas(), env.state.CopyDoPrefetch(), *w.chain.GetVMConfig(), stopPrefetchCh, txCurr)
 
 	signal := commitInterruptNone
+	startProcess := time.Now()
 LOOP:
 	for {
 		// In the following three cases, we will interrupt the execution of the transaction.
@@ -891,6 +895,7 @@ LOOP:
 			txs.Shift()
 		}
 	}
+	perf.RecordMPMetrics(perf.MpMiningCommitProcess, startProcess)
 	bloomProcessors.Close()
 	if !w.isRunning() && len(coalescedLogs) > 0 {
 		// We don't push the pendingLogsEvent while we are sealing. The reason is that
@@ -970,11 +975,13 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 			header.GasLimit = core.CalcGasLimit(parentGasLimit, w.config.GasCeil)
 		}
 	}
+	start := time.Now()
 	// Run the consensus preparation with the default or customized consensus engine.
 	if err := w.engine.Prepare(w.chain, header); err != nil {
 		log.Error("Failed to prepare header for sealing", "err", err)
 		return nil, err
 	}
+	perf.RecordMPMetrics(perf.MpMiningPrepare, start)
 	// Could potentially happen if starting to mine in an odd state.
 	// Note genParams.coinbase can be different with header.Coinbase
 	// since clique algorithm can modify the coinbase field in header.
@@ -1038,8 +1045,12 @@ func (w *worker) fillTransactions(interruptCh chan int32, env *environment, stop
 		}
 	}
 	if len(remoteTxs) > 0 {
+		startOrder := time.Now()
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, remoteTxs, env.header.BaseFee)
+		perf.RecordMPMetrics(perf.MpMiningOrder, startOrder)
+		startCommit := time.Now()
 		err = w.commitTransactions(env, txs, interruptCh, stopTimer)
+		perf.RecordMPMetrics(perf.MpMiningCommitTx, startCommit)
 	}
 
 	return
@@ -1236,10 +1247,13 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 		env.state.CorrectAccountsRoot(w.chain.CurrentBlock().Root())
 
 		finalizeStart := time.Now()
+
 		block, receipts, err := w.engine.FinalizeAndAssemble(w.chain, types.CopyHeader(env.header), env.state, env.txs, env.unclelist(), env.receipts)
 		if err != nil {
 			return err
 		}
+		perf.RecordMPMetrics(perf.MpMiningFinalize, finalizeStart)
+
 		finalizeBlockTimer.UpdateSince(finalizeStart)
 
 		// Create a local environment copy, avoid the data race with snapshot state.

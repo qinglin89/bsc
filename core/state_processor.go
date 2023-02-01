@@ -18,6 +18,7 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -38,6 +39,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/perf"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -81,7 +83,7 @@ func NewLightStateProcessor(config *params.ChainConfig, bc *BlockChain, engine c
 	}
 }
 
-func (p *LightStateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (*state.StateDB, types.Receipts, []*types.Log, uint64, error) {
+func (p *LightStateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config, ctx context.Context) (*state.StateDB, types.Receipts, []*types.Log, uint64, error) {
 	allowLightProcess := true
 	if posa, ok := p.engine.(consensus.PoSA); ok {
 		allowLightProcess = posa.AllowLightProcess(p.bc, block.Header())
@@ -109,10 +111,10 @@ func (p *LightStateProcessor) Process(block *types.Block, statedb *state.StateDB
 			if err := diffLayer.Receipts.DeriveFields(p.bc.chainConfig, block.Hash(), block.NumberU64(), block.Transactions()); err != nil {
 				log.Error("Failed to derive block receipts fields", "hash", block.Hash(), "number", block.NumberU64(), "err", err)
 				// fallback to full process
-				return p.StateProcessor.Process(block, statedb, cfg)
+				return p.StateProcessor.Process(block, statedb, cfg, context.TODO())
 			}
 
-			receipts, logs, gasUsed, err := p.LightProcess(diffLayer, block, statedb)
+			receipts, logs, gasUsed, err := p.LightProcess(diffLayer, block, statedb, context.TODO())
 			if err == nil {
 				log.Info("do light process success at block", "num", block.NumberU64())
 				return statedb, receipts, logs, gasUsed, nil
@@ -135,10 +137,10 @@ func (p *LightStateProcessor) Process(block *types.Block, statedb *state.StateDB
 		}
 	}
 	// fallback to full process
-	return p.StateProcessor.Process(block, statedb, cfg)
+	return p.StateProcessor.Process(block, statedb, cfg, context.TODO())
 }
 
-func (p *LightStateProcessor) LightProcess(diffLayer *types.DiffLayer, block *types.Block, statedb *state.StateDB) (types.Receipts, []*types.Log, uint64, error) {
+func (p *LightStateProcessor) LightProcess(diffLayer *types.DiffLayer, block *types.Block, statedb *state.StateDB, ctx context.Context) (types.Receipts, []*types.Log, uint64, error) {
 	statedb.MarkLightProcessed()
 	fullDiffCode := make(map[common.Hash][]byte, len(diffLayer.Codes))
 	diffTries := make(map[common.Address]state.Trie)
@@ -377,7 +379,7 @@ func (p *LightStateProcessor) LightProcess(diffLayer *types.DiffLayer, block *ty
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (*state.StateDB, types.Receipts, []*types.Log, uint64, error) {
+func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config, ctx context.Context) (*state.StateDB, types.Receipts, []*types.Log, uint64, error) {
 	var (
 		usedGas     = new(uint64)
 		header      = block.Header()
@@ -387,6 +389,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		gp          = new(GasPool).AddGas(block.GasLimit())
 	)
 
+	executeStart := time.Now()
 	var receipts = make([]*types.Receipt, 0)
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
@@ -429,7 +432,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		statedb.Prepare(tx.Hash(), i)
 
-		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, bloomProcessors)
+		receipt, err := applyTransaction(ctx, msg, p.config, p.bc, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, bloomProcessors)
 		if err != nil {
 			bloomProcessors.Close()
 			return statedb, nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
@@ -438,9 +441,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipts = append(receipts, receipt)
 	}
 	bloomProcessors.Close()
+	perf.RecordMPMetrics(perf.MpImportingProcessExecute, executeStart)
 
+	finalizeStart := time.Now()
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	err := p.engine.Finalize(p.bc, header, statedb, &commonTxs, block.Uncles(), &receipts, &systemTxs, usedGas)
+	perf.RecordMPMetrics(perf.MpImportingProcessFinalize, finalizeStart)
 	if err != nil {
 		return statedb, receipts, allLogs, *usedGas, err
 	}
@@ -451,13 +457,13 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	return statedb, receipts, allLogs, *usedGas, nil
 }
 
-func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM, receiptProcessors ...ReceiptProcessor) (*types.Receipt, error) {
+func applyTransaction(ctx context.Context, msg types.Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM, receiptProcessors ...ReceiptProcessor) (*types.Receipt, error) {
 	// Create a new context to be used in the EVM environment.
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
 
 	// Apply the transaction to the current state (included in the env).
-	result, err := ApplyMessage(evm, msg, gp)
+	result, err := ApplyMessage(context.TODO(), evm, msg, gp)
 	if err != nil {
 		return nil, err
 	}
@@ -515,5 +521,5 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		vm.EVMInterpreterPool.Put(ite)
 		vm.EvmPool.Put(vmenv)
 	}()
-	return applyTransaction(msg, config, bc, author, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv, receiptProcessors...)
+	return applyTransaction(context.TODO(), msg, config, bc, author, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv, receiptProcessors...)
 }

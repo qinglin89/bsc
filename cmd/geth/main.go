@@ -39,6 +39,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/perf"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
@@ -275,6 +276,10 @@ func init() {
 }
 
 func main() {
+	perf.StartGoGCMetrics()
+	perf.StartGoTraceMetrics()
+	defer perf.StopGoTraceMetrics()
+	go perf.StartTopAddrStats()
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

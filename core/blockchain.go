@@ -18,6 +18,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -45,6 +46,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/perf"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -1577,8 +1579,11 @@ func (bc *BlockChain) WriteBlockAndSetHead(block *types.Block, receipts []*types
 	if !bc.chainmu.TryLock() {
 		return NonStatTy, errChainStopped
 	}
-	defer bc.chainmu.Unlock()
-
+	start := time.Now()
+	defer func() {
+		perf.RecordMPMetrics(perf.MpMiningWrite, start)
+		bc.chainmu.Unlock()
+	}()
 	return bc.writeBlockAndSetHead(block, receipts, logs, state, emitHeadEvent)
 }
 
@@ -1680,8 +1685,11 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	if !bc.chainmu.TryLock() {
 		return 0, errChainStopped
 	}
-	defer bc.chainmu.Unlock()
-	return bc.insertChain(chain, true, true)
+	start := time.Now()
+	ni, ei := bc.insertChain(chain, true, true)
+	perf.RecordMPMetrics(perf.MpImportingTotal, start)
+	bc.chainmu.Unlock()
+	return ni, ei
 }
 
 // insertChain is the internal implementation of InsertChain, which assumes that
@@ -1712,6 +1720,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
+	startVerifyHeader := time.Now()
 	// Start the parallel header verifier
 	headers := make([]*types.Header, len(chain))
 	seals := make([]bool, len(chain))
@@ -1721,6 +1730,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		seals[i] = verifySeals
 	}
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
+	perf.RecordMPMetrics(perf.MpImportingVerifyHeader, startVerifyHeader)
 	defer close(abort)
 
 	// Peek the error for the first block to decide the directing import logic
@@ -1900,8 +1910,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			statedb.EnablePipeCommit()
 		}
 		statedb.SetExpectedStateRoot(block.Root())
-		statedb, receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
+		ctx := context.WithValue(context.TODO(), "mp", true)
+		statedb, receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig, ctx)
 		close(interruptCh) // state prefetch can be stopped
+		perf.RecordMPMetrics(perf.MpImportingProcess, substart)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			statedb.StopPrefetcher()
@@ -1918,9 +1930,12 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		blockExecutionTimer.Update(time.Since(substart))
 
 		// Validate the state using the default validator
-		substart = time.Now()
 		if !statedb.IsLightProcessed() {
-			if err := bc.validator.ValidateState(block, statedb, receipts, usedGas); err != nil {
+			substart = time.Now()
+			err := bc.validator.ValidateState(block, statedb, receipts, usedGas)
+			perf.RecordMPMetrics(perf.MpImportingVerifyState, substart)
+			if err != nil {
+				//			if err := bc.validator.ValidateState(block, statedb, receipts, usedGas); err != nil {
 				log.Error("validate state failed", "error", err)
 				bc.reportBlock(block, receipts, err)
 				statedb.StopPrefetcher()
@@ -1938,11 +1953,12 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		blockValidationTimer.Update(time.Since(substart))
 
 		// Write the block to the chain and get the status.
-		substart = time.Now()
 		var status WriteStatus
 		if !setHead {
+			substart = time.Now()
 			// Don't set the head, only insert the block
 			err = bc.writeBlockWithState(block, receipts, logs, statedb)
+			perf.RecordMPMetrics(perf.MpImportingCommit, substart)
 		} else {
 			status, err = bc.writeBlockAndSetHead(block, receipts, logs, statedb, false)
 		}
@@ -2895,6 +2911,7 @@ func (bc *BlockChain) isCachedBadBlock(block *types.Block) bool {
 
 // reportBlock logs a bad block error.
 func (bc *BlockChain) reportBlock(block *types.Block, receipts types.Receipts, err error) {
+	perf.RecordMPMetrics(perf.MpBadBlock, time.Now())
 	rawdb.WriteBadBlock(bc.db, block)
 
 	var receiptString string
