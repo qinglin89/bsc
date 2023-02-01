@@ -463,7 +463,7 @@ func applyTransaction(ctx context.Context, msg types.Message, config *params.Cha
 	evm.Reset(txContext, statedb)
 
 	// Apply the transaction to the current state (included in the env).
-	result, err := ApplyMessage(context.TODO(), evm, msg, gp)
+	result, err := ApplyMessage(ctx, evm, msg, gp)
 	if err != nil {
 		return nil, err
 	}
