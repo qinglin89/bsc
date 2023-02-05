@@ -1955,12 +1955,12 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		// Write the block to the chain and get the status.
 		var status WriteStatus
 		if !setHead {
-			substart = time.Now()
 			// Don't set the head, only insert the block
 			err = bc.writeBlockWithState(block, receipts, logs, statedb)
-			perf.RecordMPMetrics(perf.MpImportingCommit, substart)
 		} else {
+			substart = time.Now()
 			status, err = bc.writeBlockAndSetHead(block, receipts, logs, statedb, false)
+			perf.RecordMPMetrics(perf.MpImportingCommit, substart)
 		}
 		if err != nil {
 			return it.index, err
