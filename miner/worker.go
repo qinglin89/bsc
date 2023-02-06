@@ -975,13 +975,13 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 			header.GasLimit = core.CalcGasLimit(parentGasLimit, w.config.GasCeil)
 		}
 	}
-	start := time.Now()
+	//	start := time.Now()
 	// Run the consensus preparation with the default or customized consensus engine.
 	if err := w.engine.Prepare(w.chain, header); err != nil {
 		log.Error("Failed to prepare header for sealing", "err", err)
 		return nil, err
 	}
-	perf.RecordMPMetrics(perf.MpMiningPrepare, start)
+	//	perf.RecordMPMetrics(perf.MpMiningPrepare, start)
 	// Could potentially happen if starting to mine in an odd state.
 	// Note genParams.coinbase can be different with header.Coinbase
 	// since clique algorithm can modify the coinbase field in header.
@@ -1109,6 +1109,7 @@ func (w *worker) commitWork(interruptCh chan int32, timestamp int64) {
 
 LOOP:
 	for {
+		startPrepare := time.Now()
 		work, err := w.prepareWork(&generateParams{
 			timestamp: uint64(timestamp),
 			coinbase:  coinbase,
@@ -1117,6 +1118,7 @@ LOOP:
 		if err != nil {
 			return
 		}
+		perf.RecordMPMetrics(perf.MpMiningPrepare, startPrepare)
 		prevWork = work
 		workList = append(workList, work)
 
