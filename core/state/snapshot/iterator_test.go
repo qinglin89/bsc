@@ -873,7 +873,7 @@ func BenchmarkAccountIteratorTraversal(b *testing.B) {
 			it := head.(*diffLayer).newBinaryAccountIterator()
 			for it.Next() {
 				got++
-				head.(*diffLayer).accountRLP(it.Hash(), 0)
+				head.(*diffLayer).accountRLP(it.Hash(), 0, nil)
 			}
 			if exp := 200; got != exp {
 				b.Errorf("iterator len wrong, expected %d, got %d", exp, got)
@@ -971,7 +971,7 @@ func BenchmarkAccountIteratorLargeBaselayer(b *testing.B) {
 			for it.Next() {
 				got++
 				v := it.Hash()
-				head.(*diffLayer).accountRLP(v, 0)
+				head.(*diffLayer).accountRLP(v, 0, nil)
 			}
 			if exp := 2000; got != exp {
 				b.Errorf("iterator len wrong, expected %d, got %d", exp, got)

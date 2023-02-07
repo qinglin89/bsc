@@ -25,6 +25,7 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set"
+	"github.com/ethereum/go-ethereum/cachemetrics"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -79,6 +80,9 @@ var (
 	errBlockInterruptedByRecommit = errors.New("recommit interrupt while building block")
 	errBlockInterruptedByTimeout  = errors.New("timeout while building block")
 	errBlockInterruptedByOutOfGas = errors.New("out of gas while building block")
+
+	commitTxsTimer   = metrics.NewRegisteredTimer("worker/committxs", nil)
+	totalMiningTimer = metrics.NewRegisteredTimer("worker/mine", nil)
 )
 
 // environment is the worker's current environment and holds all
@@ -1022,6 +1026,7 @@ func (w *worker) fillTransactions(interruptCh chan int32, env *environment, stop
 	// Split the pending transactions into locals and remotes
 	// Fill the block with all available pending transactions.
 	pending := w.eth.TxPool().Pending(false)
+	start := time.Now()
 	localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
 	for _, account := range w.eth.TxPool().Locals() {
 		if txs := remoteTxs[account]; len(txs) > 0 {
@@ -1052,7 +1057,7 @@ func (w *worker) fillTransactions(interruptCh chan int32, env *environment, stop
 		err = w.commitTransactions(env, txs, interruptCh, stopTimer)
 		perf.RecordMPMetrics(perf.MpMiningCommitTx, startCommit)
 	}
-
+	commitTxsTimer.UpdateSince(start)
 	return
 }
 
@@ -1073,6 +1078,8 @@ func (w *worker) generateWork(params *generateParams) (*types.Block, error) {
 // and submit them to the sealer.
 func (w *worker) commitWork(interruptCh chan int32, timestamp int64) {
 	start := time.Now()
+	routeid := cachemetrics.Goid()
+	cachemetrics.UpdateMiningRoutineID(routeid)
 
 	// Set the coinbase if the worker is running or it's required
 	var coinbase common.Address
@@ -1264,6 +1271,7 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 
 		// If we're post merge, just ignore
 		if !w.isTTDReached(block.Header()) {
+			startT := time.Now()
 			select {
 			case w.taskCh <- &task{receipts: receipts, state: env.state, block: block, createdAt: time.Now()}:
 				w.unconfirmed.Shift(block.NumberU64() - 1)
@@ -1271,6 +1279,7 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 					"uncles", len(env.uncles), "txs", env.tcount,
 					"gas", block.GasUsed(),
 					"elapsed", common.PrettyDuration(time.Since(start)))
+				totalMiningTimer.Update(time.Since(startT))
 
 			case <-w.exitCh:
 				log.Info("Worker has exited")
