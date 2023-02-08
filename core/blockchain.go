@@ -1687,7 +1687,9 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		return 0, errChainStopped
 	}
 	start := time.Now()
+	state.SyncIOTmpCounterL.Clear()
 	ni, ei := bc.insertChain(chain, true, true)
+	state.SyncIOTimerL.Update(time.Duration(state.SyncIOTmpCounterL.Count()))
 	perf.RecordMPMetrics(perf.MpImportingTotal, start)
 	bc.chainmu.Unlock()
 	return ni, ei

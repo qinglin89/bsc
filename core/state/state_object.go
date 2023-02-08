@@ -258,56 +258,63 @@ func (s *StateObject) setOriginStorage(key common.Hash, value common.Hash) {
 
 // GetCommittedState retrieves a value from the committed account storage trie.
 func (s *StateObject) GetCommittedState(db Database, key common.Hash, hit *bool, calledByGetState bool) common.Hash {
-	start := time.Now()
+	startT := time.Now()
+	hitInXLayer := 0
 
 	defer func() {
-		if !calledByGetState {
-			routeid := cachemetrics.Goid()
-			isSyncMainProcess := cachemetrics.IsSyncMainRoutineID(routeid)
-			isMinerMainProcess := cachemetrics.IsMinerMainRoutineID(routeid)
-			if isSyncMainProcess && *hit {
+		routeid := cachemetrics.Goid()
+		isSyncMainProcess := cachemetrics.IsSyncMainRoutineID(routeid)
+		isMinerMainProcess := cachemetrics.IsMinerMainRoutineID(routeid)
+		delay := time.Since(startT).Nanoseconds()
+		if isSyncMainProcess {
+			syncIOCounterL.Inc(delay)
+			SyncIOTmpCounterL.Inc(delay)
+			if !calledByGetState && *hit {
 				cachemetrics.RecordCacheDepth("CACHE_L1_STORAGE")
-				cachemetrics.RecordCacheMetrics("CACHE_L1_STORAGE", start)
-				cachemetrics.RecordTotalCosts("CACHE_L1_STORAGE", start)
+				cachemetrics.RecordCacheMetrics("CACHE_L1_STORAGE", startT)
+				cachemetrics.RecordTotalCosts("CACHE_L1_STORAGE", startT)
 			}
+			switch hitInXLayer {
+			case 1:
+				cachemetrics.SyncL1StorageCounterL.Inc(delay)
+				cachemetrics.SyncL1StorageCounter.Inc(1)
+			case 2:
+				cachemetrics.SyncL2StorageCounterL.Inc(delay)
+				cachemetrics.SyncL2StorageCounter.Inc(1)
 
-			if isMinerMainProcess && *hit {
+			case 3:
+				cachemetrics.SyncL3StorageCounterL.Inc(delay)
+				cachemetrics.SyncL3StorageCounter.Inc(1)
+
+			case 4:
+				cachemetrics.SyncL4StorageCounterL.Inc(delay)
+				cachemetrics.SyncL4StorageCounter.Inc(1)
+			}
+		} else if isMinerMainProcess {
+			minerIOCounterL.Inc(delay)
+			MinerIOTmpCounterL.Inc(delay)
+			if !calledByGetState && *hit {
 				cachemetrics.RecordMinerCacheDepth("MINER_L1_STORAGE")
-				cachemetrics.RecordMinerCacheMetrics("MINER_L1_STORAGE", start)
-				cachemetrics.RecordMinerTotalCosts("MINER_L1_STORAGE", start)
+				cachemetrics.RecordMinerCacheMetrics("MINER_L1_STORAGE", startT)
+				cachemetrics.RecordMinerTotalCosts("MINER_L1_STORAGE", startT)
+			}
+			switch hitInXLayer {
+			case 1:
+				cachemetrics.MinerL1StorageCounterL.Inc(delay)
+				cachemetrics.MinerL1StorageCounter.Inc(1)
+			case 2:
+				cachemetrics.MinerL2StorageCounterL.Inc(delay)
+				cachemetrics.MinerL2StorageCounter.Inc(1)
+
+			case 3:
+				cachemetrics.MinerL3StorageCounterL.Inc(delay)
+				cachemetrics.MinerL3StorageCounter.Inc(1)
+
+			case 4:
+				cachemetrics.MinerL4StorageCounterL.Inc(delay)
+				cachemetrics.MinerL4StorageCounter.Inc(1)
 			}
 		}
-		//		var testMap sync.Map
-		//		testKey := common.HexToHash("0x75808d711721ca136a472157da58f24790bdf36249c43af0a279803a3f4794e334")
-		//		testValue := common.HexToHash("0x75808d11721ca136a472157da58f24790bdf36249c43af0a279321321321233")
-		//		testMap.Store(testKey, testValue)
-		//		v, cacahed := testMap.Load(testKey)
-		//		if cacahed {
-		//			fmt.Println("test map get value succ , key ,value", testKey, testValue)
-		//			fmt.Println("test map key tepe", reflect.TypeOf(v))
-		//		} else {
-		//			fmt.Println("test map get value fail")
-		//		}
-		//
-		//		testMap.Range(func(key, value interface{}) bool {
-		//			k := key.(common.Hash)
-		//			v := value.(int)
-		//			fmt.Println("test map range value:", k, v)
-		//			//fmt.Println("test map range value:", k, v)
-		//			fmt.Println("test map range type", reflect.TypeOf(k))
-		//			fmt.Println("test map range type", reflect.TypeOf(v))
-		//			return true
-		//		})
-		//
-		//		s.setOriginStorage(testKey, testValue)
-		//		v2, cacahed2 := s.getOriginStorage(testKey)
-		//		if cacahed2 {
-		//			fmt.Println("test map2 get value succ , key ,value", testKey, testValue)
-		//			fmt.Println("test map2 key tepe", reflect.TypeOf(v2))
-		//		} else {
-		//			fmt.Println("test map2 get value fail")
-		//		}
-		//
 	}()
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
 	if s.fakeStorage != nil {
@@ -316,17 +323,12 @@ func (s *StateObject) GetCommittedState(db Database, key common.Hash, hit *bool,
 	// If we have a pending write or clean cached, return that
 	if value, pending := s.pendingStorage[key]; pending {
 		*hit = true
+		hitInXLayer = 1
 		return value
 	}
 
 	if value, cached := s.getOriginStorage(key); cached {
-		//		routeid := cachemetrics.Goid()
-		//		isSyncMainProcess := cachemetrics.IsSyncMainRoutineID(routeid)
-		//		if isSyncMainProcess {
-		//			fmt.Printf("main process get value from mem stateObject %s key , %s ", s.address, key)
-		//		} else {
-		//			fmt.Printf("prefetch process get value from mem stateObject %s  key , %s ", s.address, key)
-		//		}
+		hitInXLayer = 1
 		*hit = true
 		return value
 	}
@@ -343,10 +345,11 @@ func (s *StateObject) GetCommittedState(db Database, key common.Hash, hit *bool,
 		//      have been handles via pendingStorage above.
 		//   2) we don't have new values, and can deliver empty response back
 		if _, destructed := s.db.snapDestructs[s.address]; destructed {
+			hitInXLayer = 2
 			return common.Hash{}
 		}
 		start := time.Now()
-		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes()))
+		enc, err = s.db.snap.Storage4HitMetrics(s.addrHash, crypto.Keccak256Hash(key.Bytes()), &hitInXLayer)
 		if metrics.EnabledExpensive {
 			s.db.SnapshotStorageReads += time.Since(start)
 		}

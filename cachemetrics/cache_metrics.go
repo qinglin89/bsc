@@ -1,8 +1,9 @@
 package cachemetrics
 
 import (
-	"github.com/ethereum/go-ethereum/metrics"
 	"time"
+
+	"github.com/ethereum/go-ethereum/metrics"
 )
 
 type cacheLayerName string
@@ -45,6 +46,70 @@ var (
 	cacheL2StorageCostCounter = metrics.NewRegisteredCounter("cache/totalcost/storage/layer2", nil)
 	cacheL3StorageCostCounter = metrics.NewRegisteredCounter("cache/totalcost/storage/layer3", nil)
 	diskL4StorageCostCounter  = metrics.NewRegisteredCounter("cache/totalcost/storage/layer4", nil)
+
+	SyncL1AccountCounterL    = metrics.NewRegisteredCounter("/sync/account/l1/delay/l", nil)
+	MinerL1AccountCounterL   = metrics.NewRegisteredCounter("/miner/account/l1/delay/l", nil)
+	SyncL1AccountCounterIDL  = metrics.NewRegisteredCounter("/sync/account/l1/delay/idisk/l", nil)
+	MinerL1AccountCounterIDL = metrics.NewRegisteredCounter("/miner/account/l1/delay/idisk/l", nil)
+
+	SyncL1StorageCounterL    = metrics.NewRegisteredCounter("/sync/storage/l1/delay/l", nil)
+	MinerL1StorageCounterL   = metrics.NewRegisteredCounter("/miner/storage/l1/delay/l", nil)
+	SyncL1StorageCounterIDL  = metrics.NewRegisteredCounter("/sync/storage/l1/delay/idisk/l", nil)
+	MinerL1StorageCounterIDL = metrics.NewRegisteredCounter("/miner/storage/l1/delay/idisk/l", nil)
+
+	SyncL2AccountCounterL    = metrics.NewRegisteredCounter("/sync/account/l2/delay/l", nil)
+	MinerL2AccountCounterL   = metrics.NewRegisteredCounter("/miner/account/l2/delay/l", nil)
+	SyncL2AccountCounterIDL  = metrics.NewRegisteredCounter("/sync/account/l2/delay/idisk/l", nil)
+	MinerL2AccountCounterIDL = metrics.NewRegisteredCounter("/miner/account/l2/delay/idisk/l", nil)
+
+	SyncL2StorageCounterL    = metrics.NewRegisteredCounter("/sync/storage/l2/delay/l", nil)
+	MinerL2StorageCounterL   = metrics.NewRegisteredCounter("/miner/storage/l2/delay/l", nil)
+	SyncL2StorageCounterIDL  = metrics.NewRegisteredCounter("/sync/storage/l2/delay/idisk/l", nil)
+	MinerL2StorageCounterIDL = metrics.NewRegisteredCounter("/miner/storage/l2/delay/idisk/l", nil)
+
+	SyncL3AccountCounterL    = metrics.NewRegisteredCounter("/sync/account/l3/delay/l", nil)
+	MinerL3AccountCounterL   = metrics.NewRegisteredCounter("/miner/account/l3/delay/l", nil)
+	SyncL3AccountCounterIDL  = metrics.NewRegisteredCounter("/sync/account/l3/delay/idisk/l", nil)
+	MinerL3AccountCounterIDL = metrics.NewRegisteredCounter("/miner/account/l3/delay/idisk/l", nil)
+
+	SyncL3StorageCounterL    = metrics.NewRegisteredCounter("/sync/storage/l3/delay/l", nil)
+	MinerL3StorageCounterL   = metrics.NewRegisteredCounter("/miner/storage/l3/delay/l", nil)
+	SyncL3StorageCounterIDL  = metrics.NewRegisteredCounter("/sync/storage/l3/delay/idisk/l", nil)
+	MinerL3StorageCounterIDL = metrics.NewRegisteredCounter("/miner/storage/l3/delay/idisk/l", nil)
+
+	SyncL4AccountCounterL    = metrics.NewRegisteredCounter("/sync/account/l4/delay/l", nil)
+	MinerL4AccountCounterL   = metrics.NewRegisteredCounter("/miner/account/l4/delay/l", nil)
+	SyncL4AccountCounterIDL  = metrics.NewRegisteredCounter("/sync/account/l4/delay/idisk/l", nil)
+	MinerL4AccountCounterIDL = metrics.NewRegisteredCounter("/miner/account/l4/delay/idisk/l", nil)
+
+	SyncL4StorageCounterL    = metrics.NewRegisteredCounter("/sync/storage/l4/delay/l", nil)
+	MinerL4StorageCounterL   = metrics.NewRegisteredCounter("/miner/storage/l4/delay/l", nil)
+	SyncL4StorageCounterIDL  = metrics.NewRegisteredCounter("/sync/storage/l4/delay/idisk/l", nil)
+	MinerL4StorageCounterIDL = metrics.NewRegisteredCounter("/miner/storage/l4/delay/idisk/l", nil)
+
+	SyncL1AccountCounter  = metrics.NewRegisteredCounter("/sync/account/l1/hit/l", nil)
+	MinerL1AccountCounter = metrics.NewRegisteredCounter("/miner/account/l1/hit/l", nil)
+
+	SyncL1StorageCounter  = metrics.NewRegisteredCounter("/sync/storage/l1/hit/l", nil)
+	MinerL1StorageCounter = metrics.NewRegisteredCounter("/miner/storage/l1/hit/l", nil)
+
+	SyncL2AccountCounter  = metrics.NewRegisteredCounter("/sync/account/l2/hit/l", nil)
+	MinerL2AccountCounter = metrics.NewRegisteredCounter("/miner/account/l2/hit/l", nil)
+
+	SyncL2StorageCounter  = metrics.NewRegisteredCounter("/sync/storage/l2/hit/l", nil)
+	MinerL2StorageCounter = metrics.NewRegisteredCounter("/miner/storage/l2/hit/l", nil)
+
+	SyncL3AccountCounter  = metrics.NewRegisteredCounter("/sync/account/l3/hit/l", nil)
+	MinerL3AccountCounter = metrics.NewRegisteredCounter("/miner/account/l3/hit/l", nil)
+
+	SyncL3StorageCounter  = metrics.NewRegisteredCounter("/sync/storage/l3/hit/l", nil)
+	MinerL3StorageCounter = metrics.NewRegisteredCounter("/miner/storage/l3/hit/l", nil)
+
+	SyncL4AccountCounter  = metrics.NewRegisteredCounter("/sync/account/l4/hit/l", nil)
+	MinerL4AccountCounter = metrics.NewRegisteredCounter("/miner/account/l4/hit/l", nil)
+
+	SyncL4StorageCounter  = metrics.NewRegisteredCounter("/sync/storage/l4/hit/l", nil)
+	MinerL4StorageCounter = metrics.NewRegisteredCounter("/miner/storage/l4/hit/l", nil)
 )
 
 // mark the info of total hit counts of each layers

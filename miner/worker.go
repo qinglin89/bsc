@@ -482,7 +482,9 @@ func (w *worker) mainLoop() {
 		select {
 		case req := <-w.newWorkCh:
 			start := time.Now()
+			state.MinerIOTmpCounterL.Clear()
 			w.commitWork(req.interruptCh, req.timestamp)
+			state.MinerIOTimerL.Update(time.Duration(state.MinerIOTmpCounterL.Count()))
 			perf.RecordMPMetrics(perf.MpMiningTotal, start)
 
 		case req := <-w.getWorkCh:

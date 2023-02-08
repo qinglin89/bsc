@@ -69,6 +69,14 @@ var (
 
 	totalSyncIOCounter  = metrics.NewRegisteredCounter("state/cache/sync/counter", nil)
 	totalMinerIOCounter = metrics.NewRegisteredCounter("state/cache/miner/counter", nil)
+
+	syncIOCounterL  = metrics.NewRegisteredCounter("sync/io/total/l", nil)
+	minerIOCounterL = metrics.NewRegisteredCounter("miner/io/total/l", nil)
+
+	SyncIOTimerL       = metrics.NewRegisteredTimer("sync/io/duration/l", nil)
+	MinerIOTimerL      = metrics.NewRegisteredTimer("miner/io/duration/l", nil)
+	SyncIOTmpCounterL  = metrics.NewRegisteredCounter("sync/io/tmp/l", nil)
+	MinerIOTmpCounterL = metrics.NewRegisteredCounter("miner/io/tmp/l", nil)
 )
 
 type proofList [][]byte
@@ -569,7 +577,7 @@ func (s *StateDB) markMetrics(start *time.Time, end *time.Time, reachStorage boo
 		totalMinerIOCounter.Inc((*end).Sub(*start).Nanoseconds())
 		minerL1AccountMeter.Mark(1)
 		if reachStorage {
-			l1StorageMeter.Mark(1)
+			minerL1StorageMeter.Mark(1)
 		}
 	}
 
@@ -748,32 +756,68 @@ func (s *StateDB) getStateObject(addr common.Address) *StateObject {
 // flag set. This is needed by the state journal to revert to the correct s-
 // destructed object instead of wiping all knowledge about the state object.
 func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
-	start := time.Now()
-	hit := false
+	startT := time.Now()
+	//	hit := false
+	hitInXLayer := 0 //1L1, 2L2, 3L3, 4L4
+	//	routeid := cachemetrics.Goid()
+	//	isSyncMainProcess := cachemetrics.IsSyncMainRoutineID(routeid)
+	//	isMinerMainProcess := cachemetrics.IsMinerMainRoutineID(routeid)
+
 	defer func() {
 		routeid := cachemetrics.Goid()
 		isSyncMainProcess := cachemetrics.IsSyncMainRoutineID(routeid)
 		isMinerMainProcess := cachemetrics.IsMinerMainRoutineID(routeid)
-		if isSyncMainProcess && hit {
-			cachemetrics.RecordCacheDepth("CACHE_L1_ACCOUNT")
-			cachemetrics.RecordCacheMetrics("CACHE_L1_ACCOUNT", start)
-			cachemetrics.RecordTotalCosts("CACHE_L1_ACCOUNT", start)
-		}
-		if isMinerMainProcess && hit {
-			cachemetrics.RecordMinerCacheDepth("MINER_L1_ACCOUNT")
-			cachemetrics.RecordMinerCacheMetrics("MINER_L1_ACCOUNT", start)
-			cachemetrics.RecordMinerTotalCosts("MINER_L1_ACCOUNT", start)
+		delay := time.Since(startT).Nanoseconds()
+		if isSyncMainProcess {
+			syncIOCounterL.Inc(delay)
+			SyncIOTmpCounterL.Inc(delay)
+
+			switch hitInXLayer {
+			case 1:
+				cachemetrics.SyncL1AccountCounterL.Inc(delay)
+				cachemetrics.SyncL1AccountCounter.Inc(1)
+			case 2:
+				cachemetrics.SyncL2AccountCounterL.Inc(delay)
+				cachemetrics.SyncL2AccountCounter.Inc(1)
+			case 3:
+				cachemetrics.SyncL3AccountCounterL.Inc(delay)
+				cachemetrics.SyncL3AccountCounter.Inc(1)
+			case 4:
+				cachemetrics.SyncL4AccountCounterL.Inc(delay)
+				cachemetrics.SyncL4AccountCounter.Inc(1)
+			}
+		} else if isMinerMainProcess {
+			minerIOCounterL.Inc(delay)
+			MinerIOTmpCounterL.Inc(delay)
+			switch hitInXLayer {
+			case 1:
+				cachemetrics.MinerL1AccountCounterL.Inc(delay)
+				cachemetrics.MinerL1AccountCounter.Inc(1)
+			case 2:
+				cachemetrics.MinerL2AccountCounterL.Inc(delay)
+				cachemetrics.MinerL2AccountCounter.Inc(1)
+			case 3:
+				cachemetrics.MinerL3AccountCounterL.Inc(delay)
+				cachemetrics.MinerL3AccountCounter.Inc(1)
+			case 4:
+				cachemetrics.MinerL4AccountCounterL.Inc(delay)
+				cachemetrics.MinerL4AccountCounter.Inc(1)
+			}
 		}
 	}()
 	// Prefer live objects if any is available
 	if obj := s.stateObjects[addr]; obj != nil {
+		//		hit = true
+		hitInXLayer = 1
 		return obj
 	}
 	// If no live objects are available, attempt to use snapshots
 	var data *types.StateAccount
 	if s.snap != nil {
 		start := time.Now()
-		acc, err := s.snap.Account(crypto.HashData(s.hasher, addr.Bytes()))
+		acc, err := s.snap.Account4HitMetrics(crypto.HashData(s.hasher, addr.Bytes()), &hitInXLayer)
+
+		//		acc, err := s.snap.Account(crypto.HashData(s.hasher, addr.Bytes()))
 		if metrics.EnabledExpensive {
 			s.SnapshotAccountReads += time.Since(start)
 		}
