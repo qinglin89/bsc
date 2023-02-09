@@ -427,7 +427,7 @@ func (dl *diffLayer) AccountRLP4HitMetrics(hash common.Hash, hitInXLayer *int) (
 		routeid := cachemetrics.Goid()
 		isSyncMainProcess := cachemetrics.IsSyncMainRoutineID(routeid)
 		isMinerMainProcess := cachemetrics.IsMinerMainRoutineID(routeid)
-		fmt.Printf("AccountRLP4HitmMetrics: Main:%v, Miner:%v, hitdiff:%v, XLayer:%d", isSyncMainProcess, isMinerMainProcess, hitInDifflayer, hitInXLayer)
+		fmt.Printf("AccountRLP4HitmMetrics: Main:%v, Miner:%v, hitdiff:%v, XLayer:%d", isSyncMainProcess, isMinerMainProcess, hitInDifflayer, *hitInXLayer)
 		if isSyncMainProcess {
 			// l1 miss
 			syncL1MissAccountMeter.Mark(1)
