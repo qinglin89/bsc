@@ -814,6 +814,8 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
 	// If no live objects are available, attempt to use snapshots
 	var data *types.StateAccount
 	if s.snap != nil {
+		fmt.Println("check snapshot")
+		log.Info("CHECK-SNAPSHOT in getDeletedStateObject")
 		start := time.Now()
 		acc, err := s.snap.Account4HitMetrics(crypto.HashData(s.hasher, addr.Bytes()), &hitInXLayer)
 
