@@ -191,7 +191,7 @@ func main() {
 	}
 	pass := strings.TrimSuffix(string(blob), "\n")
 
-	ks := keystore.NewKeyStore(filepath.Join(os.Getenv("HOME"), ".faucet", "keys_2"), keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(filepath.Join(os.Getenv("HOME"), ".faucet-test", "keys_2"), keystore.StandardScryptN, keystore.StandardScryptP)
 	if blob, err = ioutil.ReadFile(*accJSONFlag); err != nil {
 		log.Crit("Failed to read account key contents", "file", *accJSONFlag, "err", err)
 	}
@@ -265,7 +265,7 @@ func newFaucet(genesis *core.Genesis, port int, enodes []*enode.Node, network ui
 	stack, err := node.New(&node.Config{
 		Name:    "geth",
 		Version: params.VersionWithCommit(gitCommit, gitDate),
-		DataDir: filepath.Join(os.Getenv("HOME"), ".faucet"),
+		DataDir: filepath.Join(os.Getenv("HOME"), ".faucet-test"),
 		NoUSB:   true,
 		P2P: p2p.Config{
 			NAT:              nat.Any(),
